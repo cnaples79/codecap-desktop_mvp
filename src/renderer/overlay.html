@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+      background-color: rgba(0,0,0,0.4);
+      user-select: none;
+    }
+    #selection {
+      position: absolute;
+      border: 2px dashed #2e78c7;
+      background: rgba(46, 120, 199, 0.2);
+      display: none;
+      pointer-events: none;
+    }
+    #modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 60%;
+      max-height: 80%;
+      background-color: #20232a;
+      color: #e0e0e0;
+      padding: 16px;
+      border-radius: 8px;
+      display: none;
+      flex-direction: column;
+      overflow: auto;
+      z-index: 100;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+    }
+    #modal h3 {
+      margin-top: 0;
+    }
+    #modal input[type="text"], #modal select, #modal textarea {
+      width: 100%;
+      padding: 6px 8px;
+      margin-bottom: 8px;
+      border: none;
+      border-radius: 4px;
+      background-color: #2e333b;
+      color: #ffffff;
+      font-family: 'Segoe UI', sans-serif;
+      font-size: 14px;
+    }
+    #modal textarea {
+      height: 150px;
+      resize: vertical;
+    }
+    #modal .controls {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 8px;
+    }
+    #modal button {
+      padding: 6px 12px;
+      margin-left: 8px;
+      border: none;
+      border-radius: 4px;
+      background-color: #2e78c7;
+      color: #ffffff;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    #modal button.cancel {
+      background-color: #444;
+    }
+    #loading {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #ffffff;
+      font-size: 18px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="selection"></div>
+  <div id="modal">
+    <h3>Save Capture</h3>
+    <label>Title
+      <input type="text" id="capture-title" />
+    </label>
+    <label>Category
+      <select id="capture-category">
+        <option value="code">Code</option>
+        <option value="criteria">Acceptance Criteria</option>
+        <option value="notes">Notes</option>
+      </select>
+    </label>
+    <label>Body
+      <textarea id="capture-body"></textarea>
+    </label>
+    <label><input type="checkbox" id="ai-toggle" checked /> Generate AI summary & tags</label>
+    <div id="ai-summary" style="font-size: 13px; margin-top: 8px;"></div>
+    <div class="controls">
+      <button class="cancel" id="btn-cancel">Cancel</button>
+      <button id="btn-save">Save</button>
+    </div>
+  </div>
+  <div id="loading">Processing…</div>
+  <script src="overlay.js"></script>
+</body>
+</html>

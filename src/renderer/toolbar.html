@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      height: 100vh;
+      width: 100vw;
+      font-family: 'Segoe UI', sans-serif;
+      color: #e0e0e0;
+      background-color: #181818;
+    }
+    .sidebar {
+      width: 60px;
+      background-color: #20232a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 12px;
+      box-shadow: 2px 0 4px rgba(0,0,0,0.4);
+    }
+    .sidebar button {
+      width: 40px;
+      height: 40px;
+      margin-bottom: 12px;
+      border: none;
+      border-radius: 4px;
+      background-color: transparent;
+      color: #9fb3c8;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color 0.2s, color 0.2s;
+    }
+    .sidebar button:hover {
+      background-color: #2e333b;
+      color: #ffffff;
+    }
+    .sidebar button.active {
+      background-color: #3a3f47;
+      color: #ffffff;
+    }
+    #content {
+      flex: 1;
+      padding: 12px;
+      overflow-y: auto;
+    }
+    /* Codes list styles */
+    #codes-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    #codes-list li {
+      background-color: #282c34;
+      margin-bottom: 8px;
+      padding: 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    #codes-list li:hover {
+      background-color: #3a3f47;
+    }
+    #codes-list h4 {
+      margin: 0 0 4px 0;
+      font-size: 14px;
+      color: #ffffff;
+    }
+    #codes-list p {
+      margin: 0;
+      font-size: 12px;
+      color: #c0c0c0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    /* Search input */
+    #search-bar {
+      width: 100%;
+      margin-bottom: 12px;
+      padding: 6px 8px;
+      border-radius: 4px;
+      border: none;
+      background-color: #2e333b;
+      color: #ffffff;
+      font-size: 14px;
+    }
+    #search-bar::placeholder {
+      color: #777;
+    }
+    /* Panels */
+    .panel {
+      display: none;
+    }
+    .panel.active {
+      display: block;
+    }
+    /* Settings styles */
+    .settings-item {
+      margin-bottom: 8px;
+    }
+    label {
+      display: block;
+      margin-bottom: 4px;
+    }
+    input[type="text"], select {
+      width: 100%;
+      padding: 6px 8px;
+      border-radius: 4px;
+      border: none;
+      background-color: #2e333b;
+      color: #ffffff;
+    }
+    .small-button {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      background-color: #2e78c7;
+      color: #ffffff;
+      font-size: 12px;
+      border: none;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <button id="btn-codes" title="Codes">📄</button>
+    <button id="btn-cap" title="Cap">🎯</button>
+    <button id="btn-ai" title="AI">🤖</button>
+    <button id="btn-settings" title="Settings">⚙️</button>
+  </div>
+  <div id="content">
+    <div id="panel-codes" class="panel active">
+      <input type="text" id="search-bar" placeholder="Search snippets" />
+      <ul id="codes-list"></ul>
+    </div>
+    <div id="panel-ai" class="panel">
+      <h3>AI Settings (Stub)</h3>
+      <p>AI summarisation and tag suggestions are currently stubbed.  Future versions will allow you to choose a provider and supply an API key.</p>
+    </div>
+    <div id="panel-settings" class="panel">
+      <h3>Settings</h3>
+      <div class="settings-item">
+        <label for="hotkey-input">Capture hotkey (read only)</label>
+        <input type="text" id="hotkey-input" value="Ctrl/Cmd+Shift+2" readonly />
+      </div>
+      <div class="settings-item">
+        <label for="ocr-languages">OCR languages (comma-separated)</label>
+        <input type="text" id="ocr-languages" value="eng" />
+      </div>
+      <div class="settings-item">
+        <button id="save-settings" class="small-button">Save Settings</button>
+      </div>
+    </div>
+  </div>
+  <script src="toolbar.js"></script>
+</body>
+</html>

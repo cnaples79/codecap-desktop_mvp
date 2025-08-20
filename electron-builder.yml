@@ -1,0 +1,17 @@
+appId: com.codecap.desktop
+productName: CodeCap
+files:
+  - src/**/*
+  - assets/**/*
+  - node_modules/**/*
+  - package.json
+mac:
+  category: public.app-category.productivity
+linux:
+  target:
+    - AppImage
+win:
+  target:
+    - nsis
+directories:
+  output: release

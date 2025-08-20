@@ -1,0 +1,21 @@
+{
+  "name": "codecap-desktop",
+  "version": "0.1.0",
+  "description": "Electron desktop MVP for CodeCap – a snipping tool for developers and project managers.",
+  "main": "src/main/main.js",
+  "author": "CodeCap contributors",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "dependencies": {
+    
+    "electron": "^27.0.2",
+    "tesseract.js": "^4.0.3",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "electron-builder": "^24.13.1"
+  }
+}

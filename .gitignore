@@ -1,0 +1,28 @@
+# Node dependencies
+node_modules/
+dist/
+.cache/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Env files
+.env
+
+# Electron build artifacts
+/*.exe
+/*.dmg
+/*.app
+/*.snap
+/*.deb
+/*.rpm
+/*.zip
+/*.tar.gz

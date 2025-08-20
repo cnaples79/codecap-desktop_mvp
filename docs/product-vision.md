@@ -1,0 +1,5 @@
+# Product Vision
+
+CodeCap is built to solve a common problem for developers, product owners and project managers: capturing and reusing pieces of text from anywhere on your screen.  Traditional snipping tools create images.  OCR services exist but aren’t integrated into a streamlined workflow.  CodeCap combines snipping, OCR and AI assistance into a single cross‑platform productivity tool.
+
+The vision is to allow you to press a hotkey, draw a box around any code block, acceptance criteria or user story on your screen, and immediately turn that into neatly formatted text.  CodeCap organises your captures into a searchable library, generates helpful summaries and tags using AI and lets you share snippets with colleagues.  The product emphasises speed, privacy and extensibility – your data lives on your device unless you explicitly share it and additional capabilities such as cloud sync and team workspaces can be layered on later.
