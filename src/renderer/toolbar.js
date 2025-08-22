@@ -34,17 +34,32 @@ function renderList(list) {
   codesList.innerHTML = '';
   list.forEach(item => {
     const li = document.createElement('li');
+    li.title = 'Left-click to expand/collapse. Right-click to copy.';
     const titleEl = document.createElement('h4');
     titleEl.textContent = item.title;
     const previewEl = document.createElement('p');
     previewEl.textContent = item.body.slice(0, 80).replace(/\n+/g, ' ');
+    const codeEl = document.createElement('pre');
+    codeEl.className = 'code-block';
+    codeEl.textContent = item.body;
+
     li.appendChild(titleEl);
     li.appendChild(previewEl);
+    li.appendChild(codeEl);
+
+    // Left click: toggle expanded code visibility
     li.addEventListener('click', () => {
+      codeEl.classList.toggle('visible');
+    });
+
+    // Right click: copy full snippet body to clipboard
+    li.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
       navigator.clipboard.writeText(item.body).then(() => {
+        const prev = titleEl.textContent;
         titleEl.textContent = 'Copied!';
         setTimeout(() => {
-          titleEl.textContent = item.title;
+          titleEl.textContent = prev;
         }, 1000);
       });
     });
@@ -93,3 +108,8 @@ saveSettingsButton.addEventListener('click', () => {
 });
 
 loadSnippets().catch(err => console.error(err));
+
+// Reload snippets whenever the toolbar window regains focus (e.g., after saving from overlay)
+window.addEventListener('focus', () => {
+  loadSnippets().catch(err => console.error(err));
+});

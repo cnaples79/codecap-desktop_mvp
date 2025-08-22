@@ -81,6 +81,23 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    /* Expanded code block */
+    .code-block {
+      display: none;
+      background-color: #1f2329;
+      color: #e6e6e6;
+      padding: 8px;
+      margin-top: 6px;
+      border-radius: 4px;
+      border: 1px solid #3a3f47;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+      font-size: 12px;
+    }
+    .code-block.visible {
+      display: block;
+    }
     /* Search input */
     #search-bar {
       width: 100%;
