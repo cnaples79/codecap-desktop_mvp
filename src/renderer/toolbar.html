@@ -22,6 +22,7 @@
       align-items: center;
       padding-top: 12px;
       box-shadow: 2px 0 4px rgba(0,0,0,0.4);
+      -webkit-app-region: no-drag; /* keep buttons clickable */
     }
     .sidebar button {
       width: 40px;
@@ -37,6 +38,7 @@
       align-items: center;
       justify-content: center;
       transition: background-color 0.2s, color 0.2s;
+      -webkit-app-region: no-drag;
     }
     .sidebar button:hover {
       background-color: #2e333b;
@@ -50,6 +52,21 @@
       flex: 1;
       padding: 12px;
       overflow-y: auto;
+    }
+    /* Draggable title bar */
+    #titlebar {
+      height: 28px;
+      margin: -12px -12px 8px -12px; /* stretch to full width inside content */
+      padding: 0 8px;
+      display: flex;
+      align-items: center;
+      background-color: #20232a;
+      border-bottom: 1px solid #2e333b;
+      color: #9fb3c8;
+      font-size: 12px;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-app-region: drag; /* allow window dragging */
     }
     /* Codes list styles */
     #codes-list {
@@ -153,8 +170,10 @@
     <button id="btn-cap" title="Cap">🎯</button>
     <button id="btn-ai" title="AI">🤖</button>
     <button id="btn-settings" title="Settings">⚙️</button>
+    <button id="btn-share" title="Share">📤</button>
   </div>
   <div id="content">
+    <div id="titlebar">CodeCap</div>
     <div id="panel-codes" class="panel active">
       <input type="text" id="search-bar" placeholder="Search snippets" />
       <ul id="codes-list"></ul>
@@ -176,6 +195,10 @@
       <div class="settings-item">
         <button id="save-settings" class="small-button">Save Settings</button>
       </div>
+    </div>
+    <div id="panel-share" class="panel">
+      <h3>Share (Coming Soon)</h3>
+      <p>Here you will be able to share snippets with teammates via links or integrations. This panel is a placeholder for upcoming features.</p>
     </div>
   </div>
   <script src="toolbar.js"></script>

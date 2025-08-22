@@ -5,10 +5,12 @@ const btnCodes = document.getElementById('btn-codes');
 const btnCap = document.getElementById('btn-cap');
 const btnAi = document.getElementById('btn-ai');
 const btnSettings = document.getElementById('btn-settings');
+const btnShare = document.getElementById('btn-share');
 
 const panelCodes = document.getElementById('panel-codes');
 const panelAi = document.getElementById('panel-ai');
 const panelSettings = document.getElementById('panel-settings');
+const panelShare = document.getElementById('panel-share');
 
 const codesList = document.getElementById('codes-list');
 const searchBar = document.getElementById('search-bar');
@@ -16,12 +18,12 @@ const searchBar = document.getElementById('search-bar');
 let allSnippets = [];
 
 function setActiveButton(button) {
-  [btnCodes, btnCap, btnAi, btnSettings].forEach(btn => btn.classList.remove('active'));
+  [btnCodes, btnCap, btnAi, btnSettings, btnShare].forEach(btn => btn.classList.remove('active'));
   button.classList.add('active');
 }
 
 function showPanel(panel) {
-  [panelCodes, panelAi, panelSettings].forEach(p => p.classList.remove('active'));
+  [panelCodes, panelAi, panelSettings, panelShare].forEach(p => p.classList.remove('active'));
   panel.classList.add('active');
 }
 
@@ -97,6 +99,11 @@ btnAi.addEventListener('click', () => {
 btnSettings.addEventListener('click', () => {
   setActiveButton(btnSettings);
   showPanel(panelSettings);
+});
+
+btnShare.addEventListener('click', () => {
+  setActiveButton(btnShare);
+  showPanel(panelShare);
 });
 
 const saveSettingsButton = document.getElementById('save-settings');

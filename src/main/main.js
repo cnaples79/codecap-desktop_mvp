@@ -23,7 +23,7 @@ function createTray() {
   tray = new Tray(trayIcon);
   tray.setToolTip('CodeCap');
   tray.on('click', () => {
-    toggleEmblem();
+    showToolbar();
   });
 }
 
@@ -64,7 +64,11 @@ function showToolbar() {
       height: 600,
       frame: false,
       transparent: false,
-      resizable: false,
+      resizable: true,
+      movable: true,
+      minimizable: true,
+      minWidth: 320,
+      minHeight: 300,
       alwaysOnTop: true,
       show: false,
       webPreferences: {
@@ -74,6 +78,11 @@ function showToolbar() {
     });
     toolbarWindow.setMenuBarVisibility(false);
     toolbarWindow.loadFile(path.join(__dirnameResolved, '../renderer/toolbar.html'));
+    // When minimized, hide instead so we can re-show on app activation easily
+    toolbarWindow.on('minimize', (e) => {
+      e.preventDefault();
+      toolbarWindow.hide();
+    });
     toolbarWindow.on('blur', () => {
       if (toolbarWindow) {
         toolbarWindow.hide();
@@ -233,10 +242,9 @@ ipcMain.handle('search-snippets', async (_event, query) => {
 
 app.whenReady().then(() => {
   createApp().catch(err => console.error(err));
+  // Always bring back/show the main toolbar window when the app is activated
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      showToolbar();
-    }
+    showToolbar();
   });
 });
 
