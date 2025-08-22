@@ -13,7 +13,7 @@ const aiSummaryDiv = document.getElementById('ai-summary');
 const btnCancel = document.getElementById('btn-cancel');
 const btnSave = document.getElementById('btn-save');
 
-function resetOverlay() {
+function resetOverlay(hideWindow = true) {
   isSelecting = false;
   selectionEl.style.display = 'none';
   modalEl.style.display = 'none';
@@ -29,7 +29,7 @@ function resetOverlay() {
   // transparent capture window may remain visible or intercept clicks after
   // closing the modal. We intentionally call this after resetting local
   // state so that the overlay can be reused on the next capture.
-  if (window.api && typeof window.api.closeOverlay === 'function') {
+  if (hideWindow && window.api && typeof window.api.closeOverlay === 'function') {
     window.api.closeOverlay();
   }
 }
@@ -137,5 +137,6 @@ btnSave.addEventListener('click', async () => {
 });
 
 window.api.onOverlayStart(() => {
-  resetOverlay();
+  // Prepare UI for a new capture without hiding the overlay window
+  resetOverlay(false);
 });

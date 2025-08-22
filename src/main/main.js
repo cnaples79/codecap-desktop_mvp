@@ -14,6 +14,7 @@ let tray = null;
 let emblemWindow = null;
 let toolbarWindow = null;
 let overlayWindow = null;
+let currentCaptureDisplayId = null;
 
 function createTray() {
   const trayIcon = nativeImage.createFromPath(
@@ -92,9 +93,13 @@ function showToolbar() {
 
 function startCapture() {
   if (toolbarWindow) toolbarWindow.hide();
+
+  // Choose the display nearest the cursor so the overlay appears where the user is working.
+  const cursorPoint = screen.getCursorScreenPoint();
+  const targetDisplay = screen.getDisplayNearestPoint(cursorPoint);
+  const { x: dx, y: dy, width, height } = targetDisplay.bounds;
+
   if (!overlayWindow) {
-    const primaryDisplay = screen.getPrimaryDisplay();
-    const { x: dx, y: dy, width, height } = primaryDisplay.bounds;
     overlayWindow = new BrowserWindow({
       x: dx,
       y: dy,
@@ -118,11 +123,23 @@ function startCapture() {
     overlayWindow.on('closed', () => {
       overlayWindow = null;
     });
+
+    overlayWindow.webContents.once('did-finish-load', () => {
+      currentCaptureDisplayId = String(targetDisplay.id);
+      overlayWindow.setAlwaysOnTop(true, 'screen-saver');
+      overlayWindow.show();
+      overlayWindow.focus();
+      overlayWindow.webContents.send('overlay-start');
+    });
+  } else {
+    // Reuse the overlay window by moving it to the target display and showing it
+    overlayWindow.setBounds({ x: dx, y: dy, width, height });
+    currentCaptureDisplayId = String(targetDisplay.id);
+    overlayWindow.setAlwaysOnTop(true, 'screen-saver');
+    overlayWindow.show();
+    overlayWindow.focus();
+    overlayWindow.webContents.send('overlay-start');
   }
-  overlayWindow.setAlwaysOnTop(true, 'screen-saver');
-  overlayWindow.show();
-  overlayWindow.focus();
-  overlayWindow.webContents.send('overlay-start');
 }
 
 async function createApp() {
@@ -148,19 +165,25 @@ ipcMain.handle('start-capture', () => {
 
 ipcMain.handle('capture-region', async (_event, rect) => {
   const { x, y, width, height } = rect;
-  const primary = screen.getPrimaryDisplay();
-  const scaleFactor = primary.scaleFactor || 1;
+  const displays = screen.getAllDisplays();
+  const targetDisplay =
+    displays.find(d => String(d.id) === String(currentCaptureDisplayId)) ||
+    screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  const scaleFactor = targetDisplay.scaleFactor || 1;
   const sources = await desktopCapturer.getSources({
     types: ['screen'],
     thumbnailSize: {
-      width: Math.floor(primary.size.width * scaleFactor),
-      height: Math.floor(primary.size.height * scaleFactor)
+      width: Math.floor(targetDisplay.size.width * scaleFactor),
+      height: Math.floor(targetDisplay.size.height * scaleFactor)
     }
   });
   if (!sources.length) {
     return { text: '', image: '', error: 'No screen sources available' };
   }
-  const screenSource = sources[0];
+  // Prefer the source that matches the target display; fall back to the first source
+  const screenSource =
+    sources.find(s => String(s.display_id) === String(targetDisplay.id)) ||
+    sources[0];
   const thumb = screenSource.thumbnail;
   const fullImg = nativeImage.createFromBuffer(thumb.toPNG());
   const cropRect = {
