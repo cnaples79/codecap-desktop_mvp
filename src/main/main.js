@@ -6,6 +6,7 @@ const { existsSync, mkdirSync, readFileSync, writeFileSync } = require('fs');
 const { initDatabase, saveSnippet, getAllSnippets, searchSnippets, deleteSnippet } = require('./services/db');
 const { performOcr } = require('./services/ocr/ocr-service');
 const { summarizeText, suggestTags, detectLanguage } = require('./services/ai/ai-client');
+const { formatForShare, createGist } = require('./services/share');
 
 // Resolved directory of this file
 const __dirnameResolved = __dirname;
@@ -26,6 +27,9 @@ let settings = {
   appearance: {
     mode: 'dark', // 'light' | 'dark' | 'system'
     theme: 'blue' // 'blue' | 'green' | 'purple' | 'gray'
+  },
+  providers: {
+    githubToken: ''
   }
 };
 
@@ -370,15 +374,28 @@ ipcMain.handle('window-set-collapsed', (_event, collapsed) => {
 });
 
 // Settings IPC
-ipcMain.handle('get-settings', () => settings);
+ipcMain.handle('get-settings', () => ({ appearance: settings.appearance }));
 ipcMain.handle('set-settings', (_event, partial) => {
   settings = { ...settings, ...partial };
   saveSettings();
-  return settings;
+  return { appearance: settings.appearance };
 });
 
 // UI state (collapsed, etc.)
 ipcMain.handle('get-ui-state', () => ({ collapsed: isCollapsed }));
+
+// Provider status (do not leak secrets)
+ipcMain.handle('get-provider-status', () => ({
+  githubConfigured: !!(settings && settings.providers && settings.providers.githubToken)
+}));
+
+// Set provider credential (write-only)
+ipcMain.handle('set-provider-credential', (_event, { provider, value }) => {
+  if (!settings.providers) settings.providers = {};
+  if (provider === 'github') settings.providers.githubToken = String(value || '');
+  saveSettings();
+  return { success: true };
+});
 
 // Export snippets
 ipcMain.handle('export-snippets', async () => {
@@ -393,6 +410,62 @@ ipcMain.handle('export-snippets', async () => {
     const data = getAllSnippets();
     writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
     return { success: true, filePath };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+// Share: format preview/build
+ipcMain.handle('share-format', (_event, { snippets, options }) => {
+  try {
+    const result = formatForShare(snippets || [], options || {});
+    return { success: true, result };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+// Share: save to file (single or multi-file)
+ipcMain.handle('share-to-file', async (_event, { snippets, options }) => {
+  try {
+    const { content, defaultName, filesMap } = formatForShare(snippets || [], options || {});
+    const win = toolbarWindow || BrowserWindow.getFocusedWindow();
+    if (filesMap) {
+      const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+        title: 'Select a folder to save files',
+        properties: ['openDirectory', 'createDirectory']
+      });
+      if (canceled || !filePaths || !filePaths[0]) return { success: false, canceled: true };
+      const targetDir = filePaths[0];
+      for (const [name, data] of Object.entries(filesMap)) {
+        const dest = path.join(targetDir, name);
+        writeFileSync(dest, data, 'utf-8');
+      }
+      return { success: true, directory: targetDir, files: Object.keys(filesMap) };
+    }
+    const { canceled, filePath } = await dialog.showSaveDialog(win, {
+      title: 'Save shared content',
+      defaultPath: defaultName || 'snippet.txt'
+    });
+    if (canceled || !filePath) return { success: false, canceled: true };
+    writeFileSync(filePath, content || '', 'utf-8');
+    return { success: true, filePath };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+// Share: GitHub Gist
+ipcMain.handle('share-to-gist', async (_event, { snippets, options, description, isPublic, token }) => {
+  try {
+    const { content, defaultName, filesMap } = formatForShare(snippets || [], options || {});
+    const ghToken = token || settings?.providers?.githubToken;
+    if (!ghToken) {
+      return { success: false, error: 'GitHub token not configured' };
+    }
+    const files = filesMap || { [defaultName || 'snippet.txt']: content || '' };
+    const res = await createGist({ filesMap: files, description: description || 'Shared via CodeCap', public: !!isPublic, token: ghToken });
+    return { success: true, url: res.url, id: res.id };
   } catch (e) {
     return { success: false, error: e.message };
   }

@@ -327,10 +327,76 @@
       <div class="settings-item">
         <button id="btn-export-snippets" class="small-button">Export Snippets</button>
       </div>
+      <div class="settings-item">
+        <label for="github-token">GitHub Token (gist scope)</label>
+        <input type="text" id="github-token" placeholder="Paste token (not shown again)" />
+        <div style="margin-top:6px; display:flex; gap:8px; align-items:center;">
+          <button id="save-github-token" class="small-button">Save GitHub Token</button>
+          <small id="github-status" style="opacity:0.8;"></small>
+        </div>
+      </div>
     </div>
     <div id="panel-share" class="panel">
-      <h3>Share (Coming Soon)</h3>
-      <p>Here you will be able to share snippets with teammates via links or integrations. This panel is a placeholder for upcoming features.</p>
+      <h3>Share</h3>
+      <div class="settings-item">
+        <label for="share-search">Filter snippets</label>
+        <input type="text" id="share-search" placeholder="Search by title or text" />
+      </div>
+      <div class="settings-item">
+        <label><input type="checkbox" id="share-select-all" /> Select all</label>
+        <ul id="share-list" style="list-style:none; padding:0; margin:8px 0; max-height:180px; overflow:auto;"></ul>
+      </div>
+      <div class="settings-item">
+        <label>Format</label>
+        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+          <label><input type="radio" name="share-format" value="markdown" checked /> Markdown</label>
+          <label><input type="radio" name="share-format" value="plain" /> Plain</label>
+          <label><input type="radio" name="share-format" value="code" /> Code</label>
+          <label><input type="radio" name="share-format" value="json" /> JSON</label>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; align-items:center;">
+          <label><input type="checkbox" id="share-include-title" checked /> Include title</label>
+          <label><input type="checkbox" id="share-include-meta" /> Include metadata</label>
+          <label><input type="checkbox" id="share-combine" checked /> Combine into single file</label>
+          <label>Language
+            <select id="share-language">
+              <option value="auto" selected>Auto</option>
+              <option>javascript</option>
+              <option>typescript</option>
+              <option>python</option>
+              <option>go</option>
+              <option>ruby</option>
+              <option>java</option>
+              <option>csharp</option>
+              <option>cpp</option>
+              <option>c</option>
+              <option>rust</option>
+              <option>php</option>
+              <option>swift</option>
+              <option>kotlin</option>
+              <option>bash</option>
+              <option>html</option>
+              <option>css</option>
+              <option>json</option>
+              <option>yaml</option>
+              <option>text</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <div class="settings-item">
+        <label>Destinations</label>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button id="share-clipboard" class="small-button">Copy to Clipboard</button>
+          <button id="share-file" class="small-button">Save to File</button>
+          <button id="share-gist" class="small-button">Create GitHub Gist</button>
+        </div>
+        <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">
+          <label><input type="checkbox" id="gist-public" /> Public gist</label>
+          <input type="text" id="gist-desc" placeholder="Gist description (optional)" />
+          <small id="gist-status" style="opacity:0.8;"></small>
+        </div>
+      </div>
     </div>
   </div>
   <script src="toolbar.js"></script>

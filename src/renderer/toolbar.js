@@ -24,10 +24,29 @@ const btnWinClose = document.getElementById('win-close');
 const modeSelect = document.getElementById('mode-select');
 const themeSelect = document.getElementById('theme-select');
 const exportBtn = document.getElementById('btn-export-snippets');
+// Share panel controls
+const shareSearch = document.getElementById('share-search');
+const shareList = document.getElementById('share-list');
+const shareSelectAll = document.getElementById('share-select-all');
+const shareClipboardBtn = document.getElementById('share-clipboard');
+const shareFileBtn = document.getElementById('share-file');
+const shareGistBtn = document.getElementById('share-gist');
+const shareIncludeTitle = document.getElementById('share-include-title');
+const shareIncludeMeta = document.getElementById('share-include-meta');
+const shareCombine = document.getElementById('share-combine');
+const shareLanguage = document.getElementById('share-language');
+const gistPublic = document.getElementById('gist-public');
+const gistDesc = document.getElementById('gist-desc');
+const gistStatus = document.getElementById('gist-status');
+// Provider settings controls
+const githubTokenInput = document.getElementById('github-token');
+const saveGithubTokenBtn = document.getElementById('save-github-token');
+const githubStatus = document.getElementById('github-status');
 
 let allSnippets = [];
 let isCollapsed = false;
 let currentSettings = null;
+let shareSelected = new Set();
 
 function setActiveButton(button) {
   [btnCodes, btnCap, btnAi, btnSettings, btnShare].forEach(btn => btn.classList.remove('active'));
@@ -59,6 +78,10 @@ function applyAppearance(settings) {
 async function loadSnippets() {
   allSnippets = await window.api.getSnippets();
   renderList(allSnippets);
+  // keep Share panel in sync
+  if (panelShare.classList.contains('active')) {
+    renderShareList(shareSearch ? shareSearch.value.trim() : '');
+  }
 }
 
 function renderList(list) {
@@ -193,6 +216,71 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
+function getShareOptions(overrides = {}) {
+  const fmtEl = document.querySelector('input[name="share-format"]:checked');
+  const format = fmtEl ? fmtEl.value : 'markdown';
+  const includeTitle = !!(shareIncludeTitle && shareIncludeTitle.checked);
+  const includeMeta = !!(shareIncludeMeta && shareIncludeMeta.checked);
+  const combine = !!(shareCombine && shareCombine.checked);
+  const language = shareLanguage ? shareLanguage.value : 'auto';
+  return { format, includeTitle, includeMeta, combine, language, ...overrides };
+}
+
+function getFilteredSnippets(query) {
+  const q = String(query || '').toLowerCase();
+  if (!q) return allSnippets.slice();
+  return allSnippets.filter(s =>
+    (s.title || '').toLowerCase().includes(q) || (s.body || '').toLowerCase().includes(q)
+  );
+}
+
+function getSelectedSnippets() {
+  const set = shareSelected;
+  return allSnippets.filter(s => set.has(s.id));
+}
+
+function renderShareList(query) {
+  if (!shareList) return;
+  const filtered = getFilteredSnippets(query);
+  shareList.innerHTML = '';
+  filtered.forEach(s => {
+    const li = document.createElement('li');
+    li.style.display = 'flex';
+    li.style.alignItems = 'center';
+    li.style.gap = '8px';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = shareSelected.has(s.id);
+    cb.addEventListener('change', () => {
+      if (cb.checked) shareSelected.add(s.id); else shareSelected.delete(s.id);
+      // Update select-all state based on filtered view
+      const allChecked = filtered.every(x => shareSelected.has(x.id));
+      if (shareSelectAll) shareSelectAll.checked = allChecked;
+    });
+    const label = document.createElement('span');
+    label.textContent = s.title || '(untitled)';
+    label.style.flex = '1';
+    li.appendChild(cb);
+    li.appendChild(label);
+    shareList.appendChild(li);
+  });
+  // Update select-all based on filtered view
+  const allChecked = filtered.length > 0 && filtered.every(x => shareSelected.has(x.id));
+  if (shareSelectAll) shareSelectAll.checked = allChecked;
+}
+
+async function refreshProviderStatus() {
+  try {
+    const status = await window.api.getProviderStatus();
+    if (gistStatus) gistStatus.textContent = status.githubConfigured ? 'GitHub connected' : 'GitHub not configured';
+    if (githubStatus) githubStatus.textContent = status.githubConfigured ? 'GitHub connected' : 'GitHub not configured';
+    if (shareGistBtn) shareGistBtn.disabled = !status.githubConfigured;
+  } catch (e) {
+    if (gistStatus) gistStatus.textContent = '';
+    if (githubStatus) githubStatus.textContent = '';
+  }
+}
+
 searchBar.addEventListener('input', () => {
   const query = searchBar.value.trim().toLowerCase();
   if (query === '') {
@@ -223,11 +311,14 @@ btnAi.addEventListener('click', () => {
 btnSettings.addEventListener('click', () => {
   setActiveButton(btnSettings);
   showPanel(panelSettings);
+  refreshProviderStatus().catch(() => {});
 });
 
 btnShare.addEventListener('click', () => {
   setActiveButton(btnShare);
   showPanel(panelShare);
+  renderShareList('');
+  refreshProviderStatus().catch(() => {});
 });
 
 const saveSettingsButton = document.getElementById('save-settings');
@@ -325,6 +416,103 @@ if (sidebar) {
       await window.api.windowSetCollapsed(isCollapsed);
     } catch (err) {
       console.error('Toggle collapsed failed', err);
+    }
+  });
+}
+
+// Share: events
+if (shareSearch) {
+  shareSearch.addEventListener('input', () => renderShareList(shareSearch.value.trim()));
+}
+if (shareSelectAll) {
+  shareSelectAll.addEventListener('change', () => {
+    const filtered = getFilteredSnippets(shareSearch ? shareSearch.value.trim() : '');
+    if (shareSelectAll.checked) {
+      filtered.forEach(s => shareSelected.add(s.id));
+    } else {
+      filtered.forEach(s => shareSelected.delete(s.id));
+    }
+    renderShareList(shareSearch ? shareSearch.value.trim() : '');
+  });
+}
+
+async function doShareClipboard() {
+  const selected = getSelectedSnippets();
+  if (!selected.length) { alert('Select at least one snippet'); return; }
+  try {
+    const options = getShareOptions({ combine: true }); // force single content for clipboard
+    const res = await window.api.shareFormat({ snippets: selected, options });
+    if (!res?.success) throw new Error(res?.error || 'Format failed');
+    const result = res.result || {};
+    const text = result.content || Object.values(result.filesMap || {}).join('\n\n');
+    await navigator.clipboard.writeText(text);
+    alert('Copied to clipboard');
+  } catch (e) {
+    console.error('Clipboard share failed', e);
+    alert('Clipboard copy failed');
+  }
+}
+
+async function doShareFile() {
+  const selected = getSelectedSnippets();
+  if (!selected.length) { alert('Select at least one snippet'); return; }
+  try {
+    const options = getShareOptions();
+    const res = await window.api.shareToFile({ snippets: selected, options });
+    if (res?.canceled) return;
+    if (!res?.success) throw new Error(res?.error || 'Save failed');
+    if (res.filePath) alert(`Saved to ${res.filePath}`);
+    else if (res.directory) alert(`Saved ${res.files?.length || 0} file(s) in ${res.directory}`);
+  } catch (e) {
+    console.error('File share failed', e);
+    alert('Save failed');
+  }
+}
+
+async function doShareGist() {
+  const selected = getSelectedSnippets();
+  if (!selected.length) { alert('Select at least one snippet'); return; }
+  try {
+    const status = await window.api.getProviderStatus();
+    if (!status?.githubConfigured) {
+      alert('GitHub token not configured. Add it in Settings.');
+      return;
+    }
+    const options = getShareOptions();
+    const description = gistDesc ? gistDesc.value.trim() : '';
+    const isPublic = !!(gistPublic && gistPublic.checked);
+    const res = await window.api.shareToGist({ snippets: selected, options, description, isPublic });
+    if (!res?.success) throw new Error(res?.error || 'Gist failed');
+    const url = res.url;
+    if (url) {
+      await navigator.clipboard.writeText(url);
+      alert(`Gist created: ${url} (URL copied)`);
+    } else {
+      alert('Gist created');
+    }
+  } catch (e) {
+    console.error('Gist share failed', e);
+    alert(`Gist failed: ${e.message || e}`);
+  }
+}
+
+if (shareClipboardBtn) shareClipboardBtn.addEventListener('click', () => doShareClipboard());
+if (shareFileBtn) shareFileBtn.addEventListener('click', () => doShareFile());
+if (shareGistBtn) shareGistBtn.addEventListener('click', () => doShareGist());
+
+// Provider settings: GitHub token save
+if (saveGithubTokenBtn) {
+  saveGithubTokenBtn.addEventListener('click', async () => {
+    const token = (githubTokenInput && githubTokenInput.value.trim()) || '';
+    if (!token) { alert('Paste a GitHub token with gist scope'); return; }
+    try {
+      await window.api.setProviderCredential('github', token);
+      if (githubTokenInput) githubTokenInput.value = '';
+      await refreshProviderStatus();
+      alert('GitHub token saved');
+    } catch (e) {
+      console.error('Save token failed', e);
+      alert('Failed to save GitHub token');
     }
   });
 }

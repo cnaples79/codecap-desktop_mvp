@@ -31,7 +31,13 @@ contextBridge.exposeInMainWorld('api', {
   setSettings: (partial) => ipcRenderer.invoke('set-settings', partial),
   getUiState: () => ipcRenderer.invoke('get-ui-state'),
   // Export snippets
-  exportSnippets: () => ipcRenderer.invoke('export-snippets')
+  exportSnippets: () => ipcRenderer.invoke('export-snippets'),
+  // Share
+  shareFormat: (payload) => ipcRenderer.invoke('share-format', payload),
+  shareToFile: (payload) => ipcRenderer.invoke('share-to-file', payload),
+  shareToGist: (payload) => ipcRenderer.invoke('share-to-gist', payload),
+  getProviderStatus: () => ipcRenderer.invoke('get-provider-status'),
+  setProviderCredential: (provider, value) => ipcRenderer.invoke('set-provider-credential', { provider, value })
 });
 
 contextBridge.exposeInMainWorld('removeListeners', {
