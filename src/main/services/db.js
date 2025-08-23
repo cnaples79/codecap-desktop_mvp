@@ -80,4 +80,14 @@ function searchSnippets(query) {
   return snippets.filter(s => s.title.toLowerCase().includes(q) || s.body.toLowerCase().includes(q)).sort((a, b) => b.createdAt - a.createdAt);
 }
 
-module.exports = { initDatabase, saveSnippet, getAllSnippets, searchSnippets };
+function deleteSnippet(id) {
+  const idx = snippets.findIndex(s => s.id === id);
+  if (idx >= 0) {
+    const [removed] = snippets.splice(idx, 1);
+    persist();
+    return { success: true, deleted: removed };
+  }
+  return { success: false };
+}
+
+module.exports = { initDatabase, saveSnippet, getAllSnippets, searchSnippets, deleteSnippet };

@@ -3,7 +3,7 @@ const path = require('path');
 const { existsSync, mkdirSync, readFileSync, writeFileSync } = require('fs');
 // Note: fileURLToPath import removed since __dirname is available in CommonJS.
 
-const { initDatabase, saveSnippet, getAllSnippets, searchSnippets } = require('./services/db');
+const { initDatabase, saveSnippet, getAllSnippets, searchSnippets, deleteSnippet } = require('./services/db');
 const { performOcr } = require('./services/ocr/ocr-service');
 const { summarizeText, suggestTags, detectLanguage } = require('./services/ai/ai-client');
 
@@ -17,9 +17,12 @@ let overlayWindow = null;
 let currentCaptureDisplayId = null;
 let windowStatePath = null;
 let windowState = { x: undefined, y: undefined, width: 320, height: 600, isMaximized: false };
+let isCollapsed = false;
+let lastExpandedWidth = null;
 
 function saveWindowState() {
   if (!toolbarWindow || !windowStatePath) return;
+  if (isCollapsed) return; // don't persist collapsed width
   try {
     const bounds = toolbarWindow.getBounds();
     windowState.width = bounds.width;
@@ -290,6 +293,10 @@ ipcMain.handle('search-snippets', async (_event, query) => {
   return searchSnippets(query);
 });
 
+ipcMain.handle('delete-snippet', async (_event, id) => {
+  return deleteSnippet(id);
+});
+
 // Window controls from renderer
 ipcMain.handle('window-minimize', () => {
   if (toolbarWindow) toolbarWindow.minimize();
@@ -301,6 +308,24 @@ ipcMain.handle('window-toggle-maximize', () => {
   if (toolbarWindow) {
     if (toolbarWindow.isMaximized()) toolbarWindow.unmaximize();
     else toolbarWindow.maximize();
+  }
+});
+
+// Collapse/expand content area and resize window accordingly
+ipcMain.handle('window-set-collapsed', (_event, collapsed) => {
+  if (!toolbarWindow) return;
+  isCollapsed = !!collapsed;
+  const bounds = toolbarWindow.getBounds();
+  const currentHeight = bounds.height;
+  if (isCollapsed) {
+    if (toolbarWindow.isMaximized()) toolbarWindow.unmaximize();
+    lastExpandedWidth = bounds.width;
+    toolbarWindow.setMinimumSize(60, 300);
+    toolbarWindow.setSize(60, currentHeight);
+  } else {
+    toolbarWindow.setMinimumSize(320, 300);
+    const targetWidth = Math.max(lastExpandedWidth || windowState.width || 320, 320);
+    toolbarWindow.setSize(targetWidth, currentHeight);
   }
 });
 

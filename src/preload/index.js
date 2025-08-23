@@ -21,7 +21,11 @@ contextBridge.exposeInMainWorld('api', {
   // Window controls for the frameless toolbar window
   windowMinimize: () => ipcRenderer.invoke('window-minimize'),
   windowClose: () => ipcRenderer.invoke('window-close'),
-  windowToggleMaximize: () => ipcRenderer.invoke('window-toggle-maximize')
+  windowToggleMaximize: () => ipcRenderer.invoke('window-toggle-maximize'),
+  // Snippet operations
+  deleteSnippet: (id) => ipcRenderer.invoke('delete-snippet', id),
+  // Window collapse for sidebar-only mode
+  windowSetCollapsed: (collapsed) => ipcRenderer.invoke('window-set-collapsed', collapsed)
 });
 
 contextBridge.exposeInMainWorld('removeListeners', {
