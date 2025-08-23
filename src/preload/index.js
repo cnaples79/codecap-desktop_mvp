@@ -17,7 +17,11 @@ contextBridge.exposeInMainWorld('api', {
    * by the renderer after a capture is cancelled or completed to ensure the
    * overlay window is closed and UI control is returned to the user.
    */
-  closeOverlay: () => ipcRenderer.invoke('close-overlay')
+  closeOverlay: () => ipcRenderer.invoke('close-overlay'),
+  // Window controls for the frameless toolbar window
+  windowMinimize: () => ipcRenderer.invoke('window-minimize'),
+  windowClose: () => ipcRenderer.invoke('window-close'),
+  windowToggleMaximize: () => ipcRenderer.invoke('window-toggle-maximize')
 });
 
 contextBridge.exposeInMainWorld('removeListeners', {

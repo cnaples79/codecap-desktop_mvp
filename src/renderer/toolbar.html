@@ -68,6 +68,36 @@
       -webkit-user-select: none;
       -webkit-app-region: drag; /* allow window dragging */
     }
+    #window-title {
+      flex: 1;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    #window-controls {
+      display: flex;
+      gap: 6px;
+      -webkit-app-region: no-drag;
+    }
+    #window-controls button {
+      width: 20px;
+      height: 20px;
+      border: none;
+      border-radius: 3px;
+      background-color: #2e333b;
+      color: #cbd5e1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      line-height: 1;
+      padding: 0;
+    }
+    #window-controls button:hover {
+      background-color: #3a3f47;
+      color: #ffffff;
+    }
     /* Codes list styles */
     #codes-list {
       list-style: none;
@@ -173,7 +203,14 @@
     <button id="btn-share" title="Share">📤</button>
   </div>
   <div id="content">
-    <div id="titlebar">CodeCap</div>
+    <div id="titlebar">
+      <div id="window-title">CodeCap</div>
+      <div id="window-controls">
+        <button id="win-min" title="Minimize">–</button>
+        <button id="win-max" title="Maximize">▢</button>
+        <button id="win-close" title="Close">✕</button>
+      </div>
+    </div>
     <div id="panel-codes" class="panel active">
       <input type="text" id="search-bar" placeholder="Search snippets" />
       <ul id="codes-list"></ul>

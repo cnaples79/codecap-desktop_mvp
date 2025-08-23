@@ -14,6 +14,10 @@ const panelShare = document.getElementById('panel-share');
 
 const codesList = document.getElementById('codes-list');
 const searchBar = document.getElementById('search-bar');
+const titlebarEl = document.getElementById('titlebar');
+const btnWinMin = document.getElementById('win-min');
+const btnWinMax = document.getElementById('win-max');
+const btnWinClose = document.getElementById('win-close');
 
 let allSnippets = [];
 
@@ -120,3 +124,19 @@ loadSnippets().catch(err => console.error(err));
 window.addEventListener('focus', () => {
   loadSnippets().catch(err => console.error(err));
 });
+
+// Window control buttons
+if (btnWinMin) {
+  btnWinMin.addEventListener('click', () => window.api.windowMinimize());
+}
+if (btnWinMax) {
+  btnWinMax.addEventListener('click', () => window.api.windowToggleMaximize());
+}
+if (btnWinClose) {
+  btnWinClose.addEventListener('click', () => window.api.windowClose());
+}
+
+// Double-click the titlebar to toggle maximize
+if (titlebarEl) {
+  titlebarEl.addEventListener('dblclick', () => window.api.windowToggleMaximize());
+}

@@ -1,6 +1,6 @@
 const { app, BrowserWindow, Tray, nativeImage, globalShortcut, ipcMain, screen, desktopCapturer } = require('electron');
 const path = require('path');
-const { existsSync, mkdirSync } = require('fs');
+const { existsSync, mkdirSync, readFileSync, writeFileSync } = require('fs');
 // Note: fileURLToPath import removed since __dirname is available in CommonJS.
 
 const { initDatabase, saveSnippet, getAllSnippets, searchSnippets } = require('./services/db');
@@ -15,6 +15,23 @@ let emblemWindow = null;
 let toolbarWindow = null;
 let overlayWindow = null;
 let currentCaptureDisplayId = null;
+let windowStatePath = null;
+let windowState = { x: undefined, y: undefined, width: 320, height: 600, isMaximized: false };
+
+function saveWindowState() {
+  if (!toolbarWindow || !windowStatePath) return;
+  try {
+    const bounds = toolbarWindow.getBounds();
+    windowState.width = bounds.width;
+    windowState.height = bounds.height;
+    windowState.x = bounds.x;
+    windowState.y = bounds.y;
+    windowState.isMaximized = toolbarWindow.isMaximized();
+    writeFileSync(windowStatePath, JSON.stringify(windowState, null, 2));
+  } catch (err) {
+    // best-effort, ignore
+  }
+}
 
 function createTray() {
   const trayIcon = nativeImage.createFromPath(
@@ -58,10 +75,13 @@ function toggleEmblem() {
 
 function showToolbar() {
   if (emblemWindow) emblemWindow.hide();
+  let wasCreated = false;
   if (!toolbarWindow) {
     toolbarWindow = new BrowserWindow({
-      width: 320,
-      height: 600,
+      x: windowState.x,
+      y: windowState.y,
+      width: windowState.width || 320,
+      height: windowState.height || 600,
       frame: false,
       transparent: false,
       resizable: true,
@@ -83,6 +103,11 @@ function showToolbar() {
       e.preventDefault();
       toolbarWindow.hide();
     });
+    // Persist window state changes
+    toolbarWindow.on('move', saveWindowState);
+    toolbarWindow.on('resize', saveWindowState);
+    toolbarWindow.on('maximize', saveWindowState);
+    toolbarWindow.on('unmaximize', saveWindowState);
     toolbarWindow.on('blur', () => {
       if (toolbarWindow) {
         toolbarWindow.hide();
@@ -93,9 +118,16 @@ function showToolbar() {
         }
       }
     });
+    if (windowState.isMaximized) {
+      toolbarWindow.maximize();
+    }
+    wasCreated = true;
   }
-  const pos = emblemWindow ? emblemWindow.getPosition() : [100, 100];
-  toolbarWindow.setPosition(pos[0], pos[1]);
+  // Only reposition on first creation if we don't have a saved position
+  if (wasCreated && (typeof windowState.x !== 'number' || typeof windowState.y !== 'number')) {
+    const pos = emblemWindow ? emblemWindow.getPosition() : [100, 100];
+    toolbarWindow.setPosition(pos[0], pos[1]);
+  }
   toolbarWindow.show();
   toolbarWindow.focus();
 }
@@ -155,6 +187,24 @@ async function createApp() {
   const userDataPath = app.getPath('userData');
   if (!existsSync(userDataPath)) {
     mkdirSync(userDataPath);
+  }
+  // Prepare window-state persistence
+  try {
+    windowStatePath = path.join(userDataPath, 'window-state.json');
+    if (existsSync(windowStatePath)) {
+      const raw = readFileSync(windowStatePath, 'utf-8');
+      const parsed = JSON.parse(raw);
+      windowState = {
+        x: typeof parsed.x === 'number' ? parsed.x : undefined,
+        y: typeof parsed.y === 'number' ? parsed.y : undefined,
+        width: typeof parsed.width === 'number' ? parsed.width : 320,
+        height: typeof parsed.height === 'number' ? parsed.height : 600,
+        isMaximized: !!parsed.isMaximized
+      };
+    }
+  } catch (err) {
+    // ignore corrupt state
+    windowState = { x: undefined, y: undefined, width: 320, height: 600, isMaximized: false };
   }
   initDatabase(userDataPath);
   createTray();
@@ -240,6 +290,20 @@ ipcMain.handle('search-snippets', async (_event, query) => {
   return searchSnippets(query);
 });
 
+// Window controls from renderer
+ipcMain.handle('window-minimize', () => {
+  if (toolbarWindow) toolbarWindow.minimize();
+});
+ipcMain.handle('window-close', () => {
+  if (toolbarWindow) toolbarWindow.hide();
+});
+ipcMain.handle('window-toggle-maximize', () => {
+  if (toolbarWindow) {
+    if (toolbarWindow.isMaximized()) toolbarWindow.unmaximize();
+    else toolbarWindow.maximize();
+  }
+});
+
 app.whenReady().then(() => {
   createApp().catch(err => console.error(err));
   // Always bring back/show the main toolbar window when the app is activated
@@ -255,5 +319,6 @@ app.on('window-all-closed', () => {
 });
 
 app.on('will-quit', () => {
+  saveWindowState();
   globalShortcut.unregisterAll();
 });
