@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, nativeImage, globalShortcut, ipcMain, screen, desktopCapturer } = require('electron');
+const { app, BrowserWindow, Tray, nativeImage, globalShortcut, ipcMain, screen, desktopCapturer, dialog } = require('electron');
 const path = require('path');
 const { existsSync, mkdirSync, readFileSync, writeFileSync } = require('fs');
 // Note: fileURLToPath import removed since __dirname is available in CommonJS.
@@ -19,6 +19,37 @@ let windowStatePath = null;
 let windowState = { x: undefined, y: undefined, width: 320, height: 600, isMaximized: false };
 let isCollapsed = false;
 let lastExpandedWidth = null;
+
+// Settings persistence (appearance, etc.)
+let settingsPath = null;
+let settings = {
+  appearance: {
+    mode: 'dark', // 'light' | 'dark' | 'system'
+    theme: 'blue' // 'blue' | 'green' | 'purple' | 'gray'
+  }
+};
+
+function loadSettings(userDataPath) {
+  try {
+    settingsPath = path.join(userDataPath, 'settings.json');
+    if (existsSync(settingsPath)) {
+      const raw = readFileSync(settingsPath, 'utf-8');
+      const parsed = JSON.parse(raw);
+      settings = { ...settings, ...parsed };
+    }
+  } catch (e) {
+    // ignore and use defaults
+  }
+}
+
+function saveSettings() {
+  try {
+    if (!settingsPath) return;
+    writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+  } catch (e) {
+    // ignore
+  }
+}
 
 function saveWindowState() {
   if (!toolbarWindow || !windowStatePath) return;
@@ -111,16 +142,7 @@ function showToolbar() {
     toolbarWindow.on('resize', saveWindowState);
     toolbarWindow.on('maximize', saveWindowState);
     toolbarWindow.on('unmaximize', saveWindowState);
-    toolbarWindow.on('blur', () => {
-      if (toolbarWindow) {
-        toolbarWindow.hide();
-        const pos = toolbarWindow.getPosition();
-        if (emblemWindow) {
-          emblemWindow.setPosition(pos[0], pos[1]);
-          emblemWindow.show();
-        }
-      }
-    });
+    // Note: No auto-hide on blur; keep window visible unless user minimizes
     if (windowState.isMaximized) {
       toolbarWindow.maximize();
     }
@@ -130,6 +152,12 @@ function showToolbar() {
   if (wasCreated && (typeof windowState.x !== 'number' || typeof windowState.y !== 'number')) {
     const pos = emblemWindow ? emblemWindow.getPosition() : [100, 100];
     toolbarWindow.setPosition(pos[0], pos[1]);
+  }
+  // Apply collapsed width if persisted
+  if (isCollapsed && toolbarWindow) {
+    const bounds = toolbarWindow.getBounds();
+    toolbarWindow.setMinimumSize(60, 300);
+    toolbarWindow.setSize(60, bounds.height);
   }
   toolbarWindow.show();
   toolbarWindow.focus();
@@ -204,11 +232,16 @@ async function createApp() {
         height: typeof parsed.height === 'number' ? parsed.height : 600,
         isMaximized: !!parsed.isMaximized
       };
+      if (typeof parsed.collapsed === 'boolean') {
+        isCollapsed = parsed.collapsed;
+      }
     }
   } catch (err) {
     // ignore corrupt state
     windowState = { x: undefined, y: undefined, width: 320, height: 600, isMaximized: false };
   }
+  // Load settings
+  loadSettings(userDataPath);
   initDatabase(userDataPath);
   createTray();
   const shortcut = 'CommandOrControl+Shift+2';
@@ -326,6 +359,42 @@ ipcMain.handle('window-set-collapsed', (_event, collapsed) => {
     toolbarWindow.setMinimumSize(320, 300);
     const targetWidth = Math.max(lastExpandedWidth || windowState.width || 320, 320);
     toolbarWindow.setSize(targetWidth, currentHeight);
+  }
+  // persist collapsed flag
+  try {
+    if (windowStatePath) {
+      const snapshot = { ...windowState, collapsed: isCollapsed };
+      writeFileSync(windowStatePath, JSON.stringify(snapshot, null, 2));
+    }
+  } catch {}
+});
+
+// Settings IPC
+ipcMain.handle('get-settings', () => settings);
+ipcMain.handle('set-settings', (_event, partial) => {
+  settings = { ...settings, ...partial };
+  saveSettings();
+  return settings;
+});
+
+// UI state (collapsed, etc.)
+ipcMain.handle('get-ui-state', () => ({ collapsed: isCollapsed }));
+
+// Export snippets
+ipcMain.handle('export-snippets', async () => {
+  const win = toolbarWindow || BrowserWindow.getFocusedWindow();
+  const { canceled, filePath } = await dialog.showSaveDialog(win, {
+    title: 'Export Snippets',
+    defaultPath: 'snippets-export.json',
+    filters: [{ name: 'JSON', extensions: ['json'] }]
+  });
+  if (canceled || !filePath) return { success: false };
+  try {
+    const data = getAllSnippets();
+    writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+    return { success: true, filePath };
+  } catch (e) {
+    return { success: false, error: e.message };
   }
 });
 

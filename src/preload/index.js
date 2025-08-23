@@ -25,7 +25,13 @@ contextBridge.exposeInMainWorld('api', {
   // Snippet operations
   deleteSnippet: (id) => ipcRenderer.invoke('delete-snippet', id),
   // Window collapse for sidebar-only mode
-  windowSetCollapsed: (collapsed) => ipcRenderer.invoke('window-set-collapsed', collapsed)
+  windowSetCollapsed: (collapsed) => ipcRenderer.invoke('window-set-collapsed', collapsed),
+  // Settings and UI state
+  getSettings: () => ipcRenderer.invoke('get-settings'),
+  setSettings: (partial) => ipcRenderer.invoke('set-settings', partial),
+  getUiState: () => ipcRenderer.invoke('get-ui-state'),
+  // Export snippets
+  exportSnippets: () => ipcRenderer.invoke('export-snippets')
 });
 
 contextBridge.exposeInMainWorld('removeListeners', {

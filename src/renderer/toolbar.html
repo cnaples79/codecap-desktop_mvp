@@ -118,6 +118,9 @@
       position: relative;
       padding-right: 56px; /* space for action buttons */
     }
+    /* While editing, reclaim right padding and hide actions */
+    #codes-list li.editing { padding-right: 8px; }
+    #codes-list li.editing .snippet-actions { display: none; }
     #codes-list li:hover {
       background-color: #3a3f47;
     }
@@ -239,12 +242,31 @@
       display: inline-block;
       padding: 4px 8px;
       border-radius: 4px;
-      background-color: #2e78c7;
+      background-color: var(--accent, #2e78c7);
       color: #ffffff;
       font-size: 12px;
       border: none;
       cursor: pointer;
     }
+    /* Light mode overrides (minimal) */
+    body.light { color: #1f2937; background-color: #f5f6f8; }
+    body.light .sidebar { background-color: #ffffff; box-shadow: 2px 0 4px rgba(0,0,0,0.1); }
+    body.light .sidebar button { color: #475569; }
+    body.light .sidebar button:hover { background-color: #e5e7eb; color: #111827; }
+    body.light .sidebar button.active { background-color: #d1d5db; color: #111827; }
+    body.light #titlebar { background-color: #f3f4f6; border-bottom: 1px solid #e5e7eb; color: #475569; }
+    body.light #window-controls button { background-color: #e5e7eb; color: #374151; }
+    body.light #window-controls button:hover { background-color: #d1d5db; color: #111827; }
+    body.light #codes-list li { background-color: #ffffff; }
+    body.light #codes-list li:hover { background-color: #f3f4f6; }
+    body.light .code-block { background-color: #f9fafb; color: #111827; border-color: #e5e7eb; }
+    body.light input[type="text"], body.light select, body.light textarea { background-color: #f3f4f6; color: #111827; }
+    /* Theme accents */
+    :root { --accent: #2e78c7; }
+    body.theme-blue { --accent: #2e78c7; }
+    body.theme-green { --accent: #2e8c57; }
+    body.theme-purple { --accent: #7a61d1; }
+    body.theme-gray { --accent: #6b7280; }
   </style>
 </head>
 <body>
@@ -279,11 +301,31 @@
         <input type="text" id="hotkey-input" value="Ctrl/Cmd+Shift+2" readonly />
       </div>
       <div class="settings-item">
+        <label for="mode-select">Appearance</label>
+        <select id="mode-select">
+          <option value="system">System</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </div>
+      <div class="settings-item">
+        <label for="theme-select">Theme color</label>
+        <select id="theme-select">
+          <option value="blue">Blue</option>
+          <option value="green">Green</option>
+          <option value="purple">Purple</option>
+          <option value="gray">Gray</option>
+        </select>
+      </div>
+      <div class="settings-item">
         <label for="ocr-languages">OCR languages (comma-separated)</label>
         <input type="text" id="ocr-languages" value="eng" />
       </div>
       <div class="settings-item">
         <button id="save-settings" class="small-button">Save Settings</button>
+      </div>
+      <div class="settings-item">
+        <button id="btn-export-snippets" class="small-button">Export Snippets</button>
       </div>
     </div>
     <div id="panel-share" class="panel">

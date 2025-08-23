@@ -20,8 +20,14 @@ const btnWinMin = document.getElementById('win-min');
 const btnWinMax = document.getElementById('win-max');
 const btnWinClose = document.getElementById('win-close');
 
+// Settings controls
+const modeSelect = document.getElementById('mode-select');
+const themeSelect = document.getElementById('theme-select');
+const exportBtn = document.getElementById('btn-export-snippets');
+
 let allSnippets = [];
 let isCollapsed = false;
+let currentSettings = null;
 
 function setActiveButton(button) {
   [btnCodes, btnCap, btnAi, btnSettings, btnShare].forEach(btn => btn.classList.remove('active'));
@@ -31,6 +37,23 @@ function setActiveButton(button) {
 function showPanel(panel) {
   [panelCodes, panelAi, panelSettings, panelShare].forEach(p => p.classList.remove('active'));
   panel.classList.add('active');
+}
+
+function applyAppearance(settings) {
+  if (!settings) return;
+  currentSettings = settings;
+  const mode = settings.appearance?.mode || 'dark';
+  const theme = settings.appearance?.theme || 'blue';
+  // Resolve effective mode (system uses prefers-color-scheme)
+  let effectiveMode = mode;
+  if (mode === 'system') {
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    effectiveMode = prefersDark ? 'dark' : 'light';
+  }
+  document.body.classList.toggle('light', effectiveMode === 'light');
+  // Apply theme class
+  ['theme-blue','theme-green','theme-purple','theme-gray'].forEach(c => document.body.classList.remove(c));
+  document.body.classList.add(`theme-${theme}`);
 }
 
 async function loadSnippets() {
@@ -113,6 +136,7 @@ function renderList(list) {
 function showEditor(li, item, refs) {
   // Prevent duplicate editors
   if (li.querySelector('.editor-container')) return;
+  li.classList.add('editing');
   const { titleEl, previewEl, codeEl } = refs;
   // Hide preview/code while editing
   if (previewEl) previewEl.style.display = 'none';
@@ -156,6 +180,7 @@ function showEditor(li, item, refs) {
     editor.remove();
     if (previewEl) previewEl.style.display = '';
     if (codeEl) codeEl.style.display = '';
+    li.classList.remove('editing');
   });
 }
 
@@ -206,14 +231,69 @@ btnShare.addEventListener('click', () => {
 });
 
 const saveSettingsButton = document.getElementById('save-settings');
-saveSettingsButton.addEventListener('click', () => {
-  const langInput = document.getElementById('ocr-languages');
-  const languages = langInput.value.trim() || 'eng';
-  console.log('Selected OCR languages:', languages);
-  alert('Settings saved');
+saveSettingsButton.addEventListener('click', async () => {
+  const mode = modeSelect ? modeSelect.value : 'dark';
+  const theme = themeSelect ? themeSelect.value : 'blue';
+  try {
+    const updated = await window.api.setSettings({ appearance: { mode, theme } });
+    applyAppearance(updated);
+    alert('Settings saved');
+  } catch (e) {
+    console.error('Save settings failed', e);
+  }
 });
 
-loadSnippets().catch(err => console.error(err));
+if (exportBtn) {
+  exportBtn.addEventListener('click', async () => {
+    try {
+      const res = await window.api.exportSnippets();
+      if (res?.success) {
+        alert(`Exported to ${res.filePath}`);
+      } else {
+        alert('Export cancelled or failed');
+      }
+    } catch (e) {
+      console.error('Export failed', e);
+      alert('Export failed');
+    }
+  });
+}
+
+async function initUiState() {
+  try {
+    const state = await window.api.getUiState();
+    if (state && typeof state.collapsed === 'boolean') {
+      isCollapsed = state.collapsed;
+      document.body.classList.toggle('collapsed', isCollapsed);
+    }
+  } catch {}
+}
+
+async function initSettings() {
+  try {
+    const s = await window.api.getSettings();
+    applyAppearance(s);
+    if (modeSelect) modeSelect.value = s.appearance?.mode || 'dark';
+    if (themeSelect) themeSelect.value = s.appearance?.theme || 'blue';
+    // If using system mode, react to changes
+    if (window.matchMedia) {
+      const mq = window.matchMedia('(prefers-color-scheme: dark)');
+      mq.addEventListener?.('change', () => {
+        if ((currentSettings?.appearance?.mode || 'dark') === 'system') applyAppearance(currentSettings);
+      });
+    }
+  } catch (e) {
+    console.error('Init settings failed', e);
+  }
+}
+
+async function init() {
+  await initUiState();
+  await initSettings();
+  await loadSnippets();
+}
+
+init().catch(err => console.error(err));
 
 // Reload snippets whenever the toolbar window regains focus (e.g., after saving from overlay)
 window.addEventListener('focus', () => {
