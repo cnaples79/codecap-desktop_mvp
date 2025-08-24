@@ -263,7 +263,7 @@ ipcMain.handle('start-capture', () => {
 });
 
 ipcMain.handle('capture-region', async (_event, rect) => {
-  const { x, y, width, height } = rect;
+  const { x, y, width, height, viewport } = rect || {};
   const displays = screen.getAllDisplays();
   const targetDisplay =
     displays.find(d => String(d.id) === String(currentCaptureDisplayId)) ||
@@ -272,8 +272,8 @@ ipcMain.handle('capture-region', async (_event, rect) => {
   const displayBounds = targetDisplay.bounds; // DIP units
   const sources = await desktopCapturer.getSources({
     types: ['screen'],
+    // Request a thumbnail that corresponds to the display bounds at device scale
     thumbnailSize: {
-      // Request a thumbnail that corresponds to the display bounds at device scale
       width: Math.floor(displayBounds.width * scaleFactor),
       height: Math.floor(displayBounds.height * scaleFactor)
     }
@@ -288,23 +288,50 @@ ipcMain.handle('capture-region', async (_event, rect) => {
   const thumb = screenSource.thumbnail;
   const fullImg = nativeImage.createFromBuffer(thumb.toPNG());
   // Compute scaling from overlay DIP coordinates to actual image pixels
-  const imgSize = fullImg.getSize(); // With scaleFactor=1 image, this reflects pixel dimensions
-  const scaleX = imgSize.width / displayBounds.width;
-  const scaleY = imgSize.height / displayBounds.height;
+  const imgSize = fullImg.getSize(); // pixels
+  // Use display bounds (DIP) as the authoritative basis
+  const basisWidth = displayBounds.width;
+  const basisHeight = displayBounds.height;
+  const scaleX = imgSize.width / basisWidth;
+  const scaleY = imgSize.height / basisHeight;
+  // Account for cases where the overlay window cannot be positioned at the exact
+  // display top-left (e.g., macOS menu bar). We correct by adding the overlay's
+  // offset within the display to the selection coordinates.
+  let offsetX = 0;
+  let offsetY = 0;
+  try {
+    if (overlayWindow) {
+      const ob = overlayWindow.getBounds();
+      offsetX = (ob.x || 0) - (displayBounds.x || 0);
+      offsetY = (ob.y || 0) - (displayBounds.y || 0);
+    }
+  } catch {}
   const pad = 2; // small padding to avoid missing edges due to rounding
-  let cropRect = {
-    x: Math.round(x * scaleX) - pad,
-    y: Math.round(y * scaleY) - pad,
-    width: Math.round(width * scaleX) + pad * 2,
-    height: Math.round(height * scaleY) + pad * 2
-  };
-  // Clamp to image bounds
-  if (cropRect.x < 0) cropRect.x = 0;
-  if (cropRect.y < 0) cropRect.y = 0;
-  const maxWidth = imgSize.width - cropRect.x;
-  const maxHeight = imgSize.height - cropRect.y;
-  if (cropRect.width > maxWidth) cropRect.width = maxWidth;
-  if (cropRect.height > maxHeight) cropRect.height = maxHeight;
+  const adjX = (x || 0) + offsetX;
+  const adjY = (y || 0) + offsetY;
+  // Clamp DIP coordinates within display bounds first
+  const clampedAdjX = Math.max(0, Math.min(adjX, basisWidth - 1));
+  const clampedAdjY = Math.max(0, Math.min(adjY, basisHeight - 1));
+  const clampedWidthDip = Math.max(1, Math.min(width || 1, basisWidth - clampedAdjX));
+  const clampedHeightDip = Math.max(1, Math.min(height || 1, basisHeight - clampedAdjY));
+
+  // Convert to pixel coordinates
+  let pxX = Math.round(clampedAdjX * scaleX) - pad;
+  let pxY = Math.round(clampedAdjY * scaleY) - pad;
+  let pxW = Math.round(clampedWidthDip * scaleX) + pad * 2;
+  let pxH = Math.round(clampedHeightDip * scaleY) + pad * 2;
+
+  // Clamp pixel coordinates within image bounds
+  if (pxX < 0) pxX = 0;
+  if (pxY < 0) pxY = 0;
+  if (pxX >= imgSize.width) pxX = Math.max(0, imgSize.width - 1);
+  if (pxY >= imgSize.height) pxY = Math.max(0, imgSize.height - 1);
+  const maxPW = Math.max(1, imgSize.width - pxX);
+  const maxPH = Math.max(1, imgSize.height - pxY);
+  pxW = Math.max(1, Math.min(pxW, maxPW));
+  pxH = Math.max(1, Math.min(pxH, maxPH));
+
+  let cropRect = { x: pxX, y: pxY, width: pxW, height: pxH };
   const cropped = fullImg.crop(cropRect);
   const buffer = cropped.toPNG();
   try {

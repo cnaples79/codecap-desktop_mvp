@@ -77,7 +77,13 @@ document.addEventListener('mouseup', async (ev) => {
   loadingEl.style.display = 'block';
   document.body.style.cursor = 'wait';
   try {
-    const result = await window.api.captureRegion({ x, y, width, height });
+    const result = await window.api.captureRegion({
+      x,
+      y,
+      width,
+      height,
+      viewport: { w: window.innerWidth, h: window.innerHeight, dpr: window.devicePixelRatio }
+    });
     loadingEl.style.display = 'none';
     document.body.style.cursor = 'default';
     if (result.error) {
