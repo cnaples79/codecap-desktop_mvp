@@ -269,11 +269,13 @@ ipcMain.handle('capture-region', async (_event, rect) => {
     displays.find(d => String(d.id) === String(currentCaptureDisplayId)) ||
     screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
   const scaleFactor = targetDisplay.scaleFactor || 1;
+  const displayBounds = targetDisplay.bounds; // DIP units
   const sources = await desktopCapturer.getSources({
     types: ['screen'],
     thumbnailSize: {
-      width: Math.floor(targetDisplay.size.width * scaleFactor),
-      height: Math.floor(targetDisplay.size.height * scaleFactor)
+      // Request a thumbnail that corresponds to the display bounds at device scale
+      width: Math.floor(displayBounds.width * scaleFactor),
+      height: Math.floor(displayBounds.height * scaleFactor)
     }
   });
   if (!sources.length) {
@@ -285,12 +287,24 @@ ipcMain.handle('capture-region', async (_event, rect) => {
     sources[0];
   const thumb = screenSource.thumbnail;
   const fullImg = nativeImage.createFromBuffer(thumb.toPNG());
-  const cropRect = {
-    x: Math.round(x * scaleFactor),
-    y: Math.round(y * scaleFactor),
-    width: Math.round(width * scaleFactor),
-    height: Math.round(height * scaleFactor)
+  // Compute scaling from overlay DIP coordinates to actual image pixels
+  const imgSize = fullImg.getSize(); // With scaleFactor=1 image, this reflects pixel dimensions
+  const scaleX = imgSize.width / displayBounds.width;
+  const scaleY = imgSize.height / displayBounds.height;
+  const pad = 2; // small padding to avoid missing edges due to rounding
+  let cropRect = {
+    x: Math.round(x * scaleX) - pad,
+    y: Math.round(y * scaleY) - pad,
+    width: Math.round(width * scaleX) + pad * 2,
+    height: Math.round(height * scaleY) + pad * 2
   };
+  // Clamp to image bounds
+  if (cropRect.x < 0) cropRect.x = 0;
+  if (cropRect.y < 0) cropRect.y = 0;
+  const maxWidth = imgSize.width - cropRect.x;
+  const maxHeight = imgSize.height - cropRect.y;
+  if (cropRect.width > maxWidth) cropRect.width = maxWidth;
+  if (cropRect.height > maxHeight) cropRect.height = maxHeight;
   const cropped = fullImg.crop(cropRect);
   const buffer = cropped.toPNG();
   try {
