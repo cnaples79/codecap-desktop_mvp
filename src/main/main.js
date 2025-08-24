@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, nativeImage, globalShortcut, ipcMain, screen, desktopCapturer, dialog } = require('electron');
+const { app, BrowserWindow, Tray, nativeImage, globalShortcut, ipcMain, screen, desktopCapturer, dialog, shell } = require('electron');
 const path = require('path');
 const { existsSync, mkdirSync, readFileSync, writeFileSync } = require('fs');
 // Note: fileURLToPath import removed since __dirname is available in CommonJS.
@@ -345,6 +345,17 @@ ipcMain.handle('window-toggle-maximize', () => {
   if (toolbarWindow) {
     if (toolbarWindow.isMaximized()) toolbarWindow.unmaximize();
     else toolbarWindow.maximize();
+  }
+});
+
+// Open external links (mailto, http/https)
+ipcMain.handle('open-external', (_event, url) => {
+  try {
+    if (typeof url !== 'string' || !url) return { success: false };
+    shell.openExternal(url);
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
   }
 });
 

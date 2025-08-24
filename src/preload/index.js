@@ -37,6 +37,7 @@ contextBridge.exposeInMainWorld('api', {
   shareToFile: (payload) => ipcRenderer.invoke('share-to-file', payload),
   shareToGist: (payload) => ipcRenderer.invoke('share-to-gist', payload),
   getProviderStatus: () => ipcRenderer.invoke('get-provider-status'),
+  openExternal: (url) => ipcRenderer.invoke('open-external', url),
   setProviderCredential: (provider, value) => ipcRenderer.invoke('set-provider-credential', { provider, value })
 });
 

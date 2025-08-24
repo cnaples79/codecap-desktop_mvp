@@ -31,6 +31,7 @@ const shareSelectAll = document.getElementById('share-select-all');
 const shareClipboardBtn = document.getElementById('share-clipboard');
 const shareFileBtn = document.getElementById('share-file');
 const shareGistBtn = document.getElementById('share-gist');
+const shareEmailBtn = document.getElementById('share-email');
 const shareIncludeTitle = document.getElementById('share-include-title');
 const shareIncludeMeta = document.getElementById('share-include-meta');
 const shareCombine = document.getElementById('share-combine');
@@ -42,6 +43,26 @@ const gistStatus = document.getElementById('gist-status');
 const githubTokenInput = document.getElementById('github-token');
 const saveGithubTokenBtn = document.getElementById('save-github-token');
 const githubStatus = document.getElementById('github-status');
+
+// Toasts
+const toastContainer = document.getElementById('toast-container');
+function showToast(message, type = 'success', duration = 2200) {
+  try {
+    if (!toastContainer) { alert(message); return; }
+    const el = document.createElement('div');
+    el.className = `toast ${type || ''}`.trim();
+    el.textContent = message;
+    toastContainer.appendChild(el);
+    const remove = () => {
+      el.style.animation = 'toast-out 160ms ease-in forwards';
+      setTimeout(() => el.remove(), 160);
+    };
+    setTimeout(remove, Math.max(1200, duration || 2200));
+    el.addEventListener('click', remove);
+  } catch {
+    try { alert(message); } catch {}
+  }
+}
 
 let allSnippets = [];
 let isCollapsed = false;
@@ -100,6 +121,10 @@ function renderList(list) {
     // Action buttons (edit/delete)
     const actions = document.createElement('div');
     actions.className = 'snippet-actions';
+    const shareBtn = document.createElement('button');
+    shareBtn.className = 'action-btn';
+    shareBtn.title = 'Share';
+    shareBtn.textContent = '📤';
     const editBtn = document.createElement('button');
     editBtn.className = 'action-btn';
     editBtn.title = 'Edit';
@@ -108,6 +133,7 @@ function renderList(list) {
     delBtn.className = 'action-btn';
     delBtn.title = 'Delete';
     delBtn.textContent = '🗑';
+    actions.appendChild(shareBtn);
     actions.appendChild(editBtn);
     actions.appendChild(delBtn);
 
@@ -131,6 +157,16 @@ function renderList(list) {
           titleEl.textContent = prev;
         }, 1000);
       });
+    });
+
+    // Quick share
+    shareBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      setActiveButton(btnShare);
+      showPanel(panelShare);
+      shareSelected = new Set([item.id]);
+      renderShareList(shareSearch ? shareSearch.value.trim() : '');
+      showToast('Prepared to share this snippet', 'success', 1400);
     });
 
     // Delete
@@ -328,7 +364,7 @@ saveSettingsButton.addEventListener('click', async () => {
   try {
     const updated = await window.api.setSettings({ appearance: { mode, theme } });
     applyAppearance(updated);
-    alert('Settings saved');
+    showToast('Settings saved', 'success');
   } catch (e) {
     console.error('Save settings failed', e);
   }
@@ -339,13 +375,13 @@ if (exportBtn) {
     try {
       const res = await window.api.exportSnippets();
       if (res?.success) {
-        alert(`Exported to ${res.filePath}`);
+        showToast(`Exported to ${res.filePath}`, 'success');
       } else {
-        alert('Export cancelled or failed');
+        showToast('Export cancelled or failed', 'warn');
       }
     } catch (e) {
       console.error('Export failed', e);
-      alert('Export failed');
+      showToast('Export failed', 'error');
     }
   });
 }
@@ -438,7 +474,7 @@ if (shareSelectAll) {
 
 async function doShareClipboard() {
   const selected = getSelectedSnippets();
-  if (!selected.length) { alert('Select at least one snippet'); return; }
+  if (!selected.length) { showToast('Select at least one snippet', 'warn'); return; }
   try {
     const options = getShareOptions({ combine: true }); // force single content for clipboard
     const res = await window.api.shareFormat({ snippets: selected, options });
@@ -446,36 +482,55 @@ async function doShareClipboard() {
     const result = res.result || {};
     const text = result.content || Object.values(result.filesMap || {}).join('\n\n');
     await navigator.clipboard.writeText(text);
-    alert('Copied to clipboard');
+    showToast('Copied to clipboard', 'success');
   } catch (e) {
     console.error('Clipboard share failed', e);
-    alert('Clipboard copy failed');
+    showToast('Clipboard copy failed', 'error');
   }
 }
 
 async function doShareFile() {
   const selected = getSelectedSnippets();
-  if (!selected.length) { alert('Select at least one snippet'); return; }
+  if (!selected.length) { showToast('Select at least one snippet', 'warn'); return; }
   try {
     const options = getShareOptions();
     const res = await window.api.shareToFile({ snippets: selected, options });
     if (res?.canceled) return;
     if (!res?.success) throw new Error(res?.error || 'Save failed');
-    if (res.filePath) alert(`Saved to ${res.filePath}`);
-    else if (res.directory) alert(`Saved ${res.files?.length || 0} file(s) in ${res.directory}`);
+    if (res.filePath) showToast(`Saved to ${res.filePath}`, 'success');
+    else if (res.directory) showToast(`Saved ${res.files?.length || 0} file(s) in ${res.directory}`, 'success');
   } catch (e) {
     console.error('File share failed', e);
-    alert('Save failed');
+    showToast('Save failed', 'error');
+  }
+}
+
+async function doShareEmail() {
+  const selected = getSelectedSnippets();
+  if (!selected.length) { showToast('Select at least one snippet', 'warn'); return; }
+  try {
+    const options = getShareOptions({ combine: true });
+    const res = await window.api.shareFormat({ snippets: selected, options });
+    if (!res?.success) throw new Error(res?.error || 'Format failed');
+    const result = res.result || {};
+    const text = result.content || Object.values(result.filesMap || {}).join('\n\n');
+    const subject = selected.length === 1 ? `Snippet: ${selected[0].title || 'Untitled'}` : `CodeCap snippets (${selected.length})`;
+    const url = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
+    await window.api.openExternal(url);
+    showToast('Email compose opened', 'success');
+  } catch (e) {
+    console.error('Email share failed', e);
+    showToast('Email share failed', 'error');
   }
 }
 
 async function doShareGist() {
   const selected = getSelectedSnippets();
-  if (!selected.length) { alert('Select at least one snippet'); return; }
+  if (!selected.length) { showToast('Select at least one snippet', 'warn'); return; }
   try {
     const status = await window.api.getProviderStatus();
     if (!status?.githubConfigured) {
-      alert('GitHub token not configured. Add it in Settings.');
+      showToast('GitHub token not configured. Add it in Settings.', 'warn');
       return;
     }
     const options = getShareOptions();
@@ -486,33 +541,34 @@ async function doShareGist() {
     const url = res.url;
     if (url) {
       await navigator.clipboard.writeText(url);
-      alert(`Gist created: ${url} (URL copied)`);
+      showToast(`Gist created: ${url} (URL copied)`, 'success', 3200);
     } else {
-      alert('Gist created');
+      showToast('Gist created', 'success');
     }
   } catch (e) {
     console.error('Gist share failed', e);
-    alert(`Gist failed: ${e.message || e}`);
+    showToast(`Gist failed: ${e.message || e}`, 'error');
   }
 }
 
 if (shareClipboardBtn) shareClipboardBtn.addEventListener('click', () => doShareClipboard());
 if (shareFileBtn) shareFileBtn.addEventListener('click', () => doShareFile());
+if (shareEmailBtn) shareEmailBtn.addEventListener('click', () => doShareEmail());
 if (shareGistBtn) shareGistBtn.addEventListener('click', () => doShareGist());
 
 // Provider settings: GitHub token save
 if (saveGithubTokenBtn) {
   saveGithubTokenBtn.addEventListener('click', async () => {
     const token = (githubTokenInput && githubTokenInput.value.trim()) || '';
-    if (!token) { alert('Paste a GitHub token with gist scope'); return; }
+    if (!token) { showToast('Paste a GitHub token with gist scope', 'warn'); return; }
     try {
       await window.api.setProviderCredential('github', token);
       if (githubTokenInput) githubTokenInput.value = '';
       await refreshProviderStatus();
-      alert('GitHub token saved');
+      showToast('GitHub token saved', 'success');
     } catch (e) {
       console.error('Save token failed', e);
-      alert('Failed to save GitHub token');
+      showToast('Failed to save GitHub token', 'error');
     }
   });
 }

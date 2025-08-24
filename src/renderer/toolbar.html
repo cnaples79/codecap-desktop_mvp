@@ -267,6 +267,39 @@
     body.theme-green { --accent: #2e8c57; }
     body.theme-purple { --accent: #7a61d1; }
     body.theme-gray { --accent: #6b7280; }
+    /* Toasts */
+    #toast-container {
+      position: fixed;
+      top: 44px;
+      right: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 10000;
+      pointer-events: none;
+    }
+    .toast {
+      background: rgba(30, 32, 36, 0.95);
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 4px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      font-size: 12px;
+      pointer-events: auto;
+      border-left: 3px solid var(--accent, #2e78c7);
+      opacity: 0;
+      transform: translateY(-6px);
+      animation: toast-in 160ms ease-out forwards;
+    }
+    .toast.success { border-left-color: #10b981; }
+    .toast.error { border-left-color: #ef4444; }
+    .toast.warn { border-left-color: #f59e0b; }
+    @keyframes toast-in {
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes toast-out {
+      to { opacity: 0; transform: translateY(-6px); }
+    }
   </style>
 </head>
 <body>
@@ -389,6 +422,7 @@
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
           <button id="share-clipboard" class="small-button">Copy to Clipboard</button>
           <button id="share-file" class="small-button">Save to File</button>
+          <button id="share-email" class="small-button">Email</button>
           <button id="share-gist" class="small-button">Create GitHub Gist</button>
         </div>
         <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">
@@ -399,6 +433,7 @@
       </div>
     </div>
   </div>
+  <div id="toast-container"></div>
   <script src="toolbar.js"></script>
 </body>
 </html>
