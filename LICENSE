@@ -1,21 +1,67 @@
-MIT License
+Business Source License 1.1
 
-Copyright (c) 2025 CodeCap contributors
+Parameters
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Licensor: Cnaples79
+Licensed Work: CodeCap (the “Licensed Work”)
+Additional Use Grant: The Licensor grants NO additional use rights. NO Production Use by any party other than the Licensor is permitted prior to the Change Date.
+Change Date: 2029-08-25
+Change License: MIT
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+The Business Source License (this “License”) is not an Open Source license.
+However, the Licensed Work will eventually be made available under the Change
+License, as stated above.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+1. License Grant
+   Subject to the conditions of this License, the Licensor grants you a
+   non-exclusive, worldwide, non-transferable, non-sublicensable license to
+   copy, modify, create derivative works of, redistribute, and make
+   non-Production Use of the Licensed Work.
+
+2. Production Use Not Permitted (Except as Allowed by the Additional Use Grant)
+   “Production Use” means use of the Licensed Work in any way that is intended
+   for or directed toward production, commercial, revenue-generating, or other
+   use in or for the benefit of end users (including internal end users).
+   Prior to the Change Date, Production Use is prohibited unless expressly
+   permitted by the Additional Use Grant above.
+
+3. Change Date and Change License
+   On the Change Date, the rights granted under this License automatically and
+   irrevocably become subject to the Change License listed above, and you may,
+   at your option, continue to use the Licensed Work under this License or
+   under the Change License. The Licensor will not revoke or retroactively
+   alter the Change License for versions released before the Change Date.
+
+4. No Trademark License
+   This License does not grant any right, title, or interest in or to the names,
+   logos, or trademarks of the Licensor.
+
+5. Patents
+   No patent rights are granted under this License.
+
+6. Warranty Disclaimer
+   THE LICENSED WORK IS PROVIDED “AS IS” AND “AS AVAILABLE,” WITHOUT WARRANTY
+   OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+   OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+   THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE LICENSED WORK IS
+   WITH YOU.
+
+7. Limitation of Liability
+   IN NO EVENT WILL THE LICENSOR BE LIABLE FOR ANY DAMAGES, INCLUDING WITHOUT
+   LIMITATION DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES,
+   ARISING OUT OF THE USE OR INABILITY TO USE THE LICENSED WORK, EVEN IF
+   ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+8. Termination
+   If you materially breach this License, your rights under this License
+   terminate automatically. Upon termination, you must cease all use and
+   distribution of the Licensed Work. Sections 4–7 survive termination.
+
+9. Miscellaneous
+   This License constitutes the entire agreement concerning its subject matter.
+   If any provision is unenforceable, the remainder remains in effect. This
+   License is governed by the law applicable where the Licensor is located,
+   excluding conflict-of-law rules.
+
+Full (unmodified) text of the Business Source License 1.1:
+https://mariadb.com/bsl11/
