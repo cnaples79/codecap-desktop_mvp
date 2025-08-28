@@ -39,11 +39,8 @@ async function callOpenRouter(messages, maxTokens = 500) {
       top_p: 1.0
     };
 
-    console.log('OpenRouter API Request:', {
-      model: payload.model,
-      messageCount: messages.length,
-      maxTokens: maxTokens
-    });
+    // Debug logging (uncomment if needed)
+    // console.log('OpenRouter API Request:', { model: payload.model, messageCount: messages.length, maxTokens: maxTokens });
 
     const data = Buffer.from(JSON.stringify(payload, null, 2));
     const timeout = setTimeout(() => {
@@ -67,26 +64,27 @@ async function callOpenRouter(messages, maxTokens = 500) {
       let body = '';
       res.on('data', chunk => body += chunk);
       res.on('end', () => {
-        console.log('OpenRouter API Response Status:', res.statusCode);
-        console.log('OpenRouter API Response Headers:', res.headers);
+        // Debug logging (uncomment if needed)
+        // console.log('OpenRouter API Response Status:', res.statusCode);
+        // console.log('OpenRouter API Response Headers:', res.headers);
         
         try {
           const json = JSON.parse(body);
-          console.log('OpenRouter API Response Body:', JSON.stringify(json, null, 2));
+          // console.log('OpenRouter API Response Body:', JSON.stringify(json, null, 2));
           
           if (res.statusCode === 200 && json.choices && json.choices.length > 0) {
             const choice = json.choices[0];
             if (choice.message && choice.message.content) {
               const content = choice.message.content.trim();
               if (!content || content.length === 0) {
-                console.error('Empty content from OpenRouter:', choice);
+                // console.error('Empty content from OpenRouter:', choice);
                 reject(new Error('AI returned empty response'));
               } else {
-                console.log('OpenRouter Success - Content length:', content.length);
+                // console.log('OpenRouter Success - Content length:', content.length);
                 resolve(content);
               }
             } else {
-              console.error('Invalid choice structure:', choice);
+              // console.error('Invalid choice structure:', choice);
               reject(new Error('Invalid response structure from OpenRouter API'));
             }
           } else if (res.statusCode === 401) {
@@ -99,11 +97,11 @@ async function callOpenRouter(messages, maxTokens = 500) {
           } else if (json.error) {
             reject(new Error(`OpenRouter API error: ${json.error.message || json.error.code || 'Unknown error'}`));
           } else {
-            console.error('Unexpected response:', { status: res.statusCode, body: body.substring(0, 500) });
+            // console.error('Unexpected response:', { status: res.statusCode, body: body.substring(0, 500) });
             reject(new Error(`HTTP ${res.statusCode}: ${body.substring(0, 200)}`));
           }
         } catch (e) {
-          console.error('Failed to parse OpenRouter response:', e, 'Body:', body.substring(0, 500));
+          // console.error('Failed to parse OpenRouter response:', e, 'Body:', body.substring(0, 500));
           reject(new Error(`Failed to parse response: ${e.message}`));
         }
       });
@@ -111,7 +109,7 @@ async function callOpenRouter(messages, maxTokens = 500) {
 
     req.on('error', (err) => {
       clearTimeout(timeout);
-      console.error('OpenRouter request error:', err);
+      // console.error('OpenRouter request error:', err);
       if (err.code === 'ENOTFOUND') {
         reject(new Error('Network error: Unable to reach OpenRouter API'));
       } else if (err.code === 'ECONNREFUSED') {
@@ -147,7 +145,7 @@ async function explainCode(codeText) {
       }
     ];
 
-    return await callOpenRouter(messages, 400);
+    return await callOpenRouter(messages, 800);
   } catch (error) {
     console.error('AI code explanation failed:', error);
     throw error; // Re-throw to let calling code handle it
@@ -178,7 +176,7 @@ async function summarizeText(text) {
       }
     ];
 
-    const result = await callOpenRouter(messages, 300);
+    const result = await callOpenRouter(messages, 600);
     return result || 'Summary could not be generated';
   } catch (error) {
     console.error('AI text summarization failed:', error);
@@ -211,7 +209,7 @@ async function suggestTags(text, context = 'general') {
       }
     ];
 
-    const response = await callOpenRouter(messages, 150);
+    const response = await callOpenRouter(messages, 300);
     if (!response) return getKeywordTags(text);
     
     const tags = response.split(',').map(tag => tag.trim().toLowerCase()).filter(tag => tag.length > 0 && tag.length < 30);
