@@ -46,8 +46,10 @@ function saveSnippet(snippet) {
         tags: snippet.tags || [],
         createdAt: now,
         updatedAt: now,
-        aiSummary: snippet.aiSummary,
-        aiTags: snippet.aiTags,
+        aiSummary: snippet.aiSummary || '',
+        aiTags: snippet.aiTags || [],
+        aiExplanation: snippet.aiExplanation || '',
+        aiProcessed: snippet.aiProcessed || false,
         language: snippet.language
       };
       snippets.unshift(record);
@@ -61,8 +63,10 @@ function saveSnippet(snippet) {
       tags: snippet.tags || [],
       createdAt: now,
       updatedAt: now,
-      aiSummary: snippet.aiSummary,
-      aiTags: snippet.aiTags,
+      aiSummary: snippet.aiSummary || '',
+      aiTags: snippet.aiTags || [],
+      aiExplanation: snippet.aiExplanation || '',
+      aiProcessed: snippet.aiProcessed || false,
       language: snippet.language
     };
     snippets.unshift(record);
@@ -77,7 +81,14 @@ function getAllSnippets() {
 
 function searchSnippets(query) {
   const q = query.toLowerCase();
-  return snippets.filter(s => s.title.toLowerCase().includes(q) || s.body.toLowerCase().includes(q)).sort((a, b) => b.createdAt - a.createdAt);
+  return snippets.filter(s => 
+    s.title.toLowerCase().includes(q) || 
+    s.body.toLowerCase().includes(q) ||
+    (s.aiSummary && s.aiSummary.toLowerCase().includes(q)) ||
+    (s.aiExplanation && s.aiExplanation.toLowerCase().includes(q)) ||
+    (s.tags && s.tags.some(tag => tag.toLowerCase().includes(q))) ||
+    (s.aiTags && s.aiTags.some(tag => tag.toLowerCase().includes(q)))
+  ).sort((a, b) => b.createdAt - a.createdAt);
 }
 
 function deleteSnippet(id) {
@@ -90,4 +101,39 @@ function deleteSnippet(id) {
   return { success: false };
 }
 
-module.exports = { initDatabase, saveSnippet, getAllSnippets, searchSnippets, deleteSnippet };
+function getSnippetById(id) {
+  return snippets.find(s => s.id === id) || null;
+}
+
+function updateSnippetAi(id, aiData) {
+  const snippet = getSnippetById(id);
+  if (!snippet) return null;
+  
+  const now = Date.now();
+  const updatedSnippet = {
+    ...snippet,
+    aiSummary: aiData.summary || snippet.aiSummary,
+    aiTags: aiData.tags || snippet.aiTags, 
+    aiExplanation: aiData.explanation || snippet.aiExplanation,
+    aiProcessed: true,
+    updatedAt: now
+  };
+  
+  const index = snippets.findIndex(s => s.id === id);
+  if (index >= 0) {
+    snippets[index] = updatedSnippet;
+    persist();
+    return updatedSnippet;
+  }
+  return null;
+}
+
+module.exports = { 
+  initDatabase, 
+  saveSnippet, 
+  getAllSnippets, 
+  searchSnippets, 
+  deleteSnippet,
+  getSnippetById,
+  updateSnippetAi
+};

@@ -4,7 +4,11 @@ contextBridge.exposeInMainWorld('api', {
   showToolbar: () => ipcRenderer.invoke('show-toolbar'),
   startCapture: () => ipcRenderer.invoke('start-capture'),
   captureRegion: (rect) => ipcRenderer.invoke('capture-region', rect),
-  aiProcess: (text) => ipcRenderer.invoke('ai-process', text),
+  aiProcess: (text, options) => ipcRenderer.invoke('ai-process', text, options),
+  aiExplainCode: (text) => ipcRenderer.invoke('ai-explain-code', text),
+  aiSummarize: (text) => ipcRenderer.invoke('ai-summarize', text),
+  aiSuggestTags: (text, context) => ipcRenderer.invoke('ai-suggest-tags', text, context),
+  updateSnippetAi: (id, aiData) => ipcRenderer.invoke('update-snippet-ai', id, aiData),
   saveSnippet: (snippet) => ipcRenderer.invoke('save-snippet', snippet),
   getSnippets: () => ipcRenderer.invoke('get-snippets'),
   searchSnippets: (query) => ipcRenderer.invoke('search-snippets', query),
@@ -38,7 +42,7 @@ contextBridge.exposeInMainWorld('api', {
   shareToGist: (payload) => ipcRenderer.invoke('share-to-gist', payload),
   getProviderStatus: () => ipcRenderer.invoke('get-provider-status'),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
-  setProviderCredential: (provider, value) => ipcRenderer.invoke('set-provider-credential', { provider, value })
+  setProviderCredential: (provider, value) => ipcRenderer.invoke('set-provider-credential', { provider, value }),
 });
 
 contextBridge.exposeInMainWorld('removeListeners', {

@@ -3,9 +3,9 @@ const path = require('path');
 const { existsSync, mkdirSync, readFileSync, writeFileSync } = require('fs');
 // Note: fileURLToPath import removed since __dirname is available in CommonJS.
 
-const { initDatabase, saveSnippet, getAllSnippets, searchSnippets, deleteSnippet } = require('./services/db');
+const { initDatabase, saveSnippet, getAllSnippets, searchSnippets, deleteSnippet, getSnippetById, updateSnippetAi } = require('./services/db');
 const { performOcr } = require('./services/ocr/ocr-service');
-const { summarizeText, suggestTags, detectLanguage } = require('./services/ai/ai-client');
+const { summarizeText, suggestTags, detectLanguage, explainCode, setOpenRouterKey, setAiSettings, getAiSettings } = require('./services/ai/ai-client');
 const { formatForShare, createGist } = require('./services/share');
 
 // Resolved directory of this file
@@ -29,7 +29,15 @@ let settings = {
     theme: 'blue' // 'blue' | 'green' | 'purple' | 'gray'
   },
   providers: {
-    githubToken: ''
+    githubToken: '',
+    openRouterKey: ''
+  },
+  ai: {
+    enabled: true,
+    explainCode: true,
+    summarizeText: true,
+    suggestTags: true,
+    model: 'deepseek/deepseek-r1'
   }
 };
 
@@ -40,6 +48,14 @@ function loadSettings(userDataPath) {
       const raw = readFileSync(settingsPath, 'utf-8');
       const parsed = JSON.parse(raw);
       settings = { ...settings, ...parsed };
+      
+      // Initialize AI client with loaded settings
+      if (settings.providers?.openRouterKey) {
+        setOpenRouterKey(settings.providers.openRouterKey);
+      }
+      if (settings.ai) {
+        setAiSettings(settings.ai);
+      }
     }
   } catch (e) {
     // ignore and use defaults
@@ -343,11 +359,76 @@ ipcMain.handle('capture-region', async (_event, rect) => {
   }
 });
 
-ipcMain.handle('ai-process', async (_event, text) => {
-  const summary = await summarizeText(text);
-  const tags = await suggestTags(text);
-  const language = await detectLanguage(text);
-  return { summary, tags, language };
+ipcMain.handle('ai-process', async (_event, text, options = {}) => {
+  try {
+    const results = {};
+    const language = await detectLanguage(text);
+    results.language = language;
+    
+    // Run AI processing based on options
+    const promises = [];
+    if (options.summarize !== false) {
+      promises.push(summarizeText(text).then(summary => { results.summary = summary; }));
+    }
+    if (options.tags !== false) {
+      promises.push(suggestTags(text, language).then(tags => { results.tags = tags; }));
+    }
+    if (options.explain && language === 'code') {
+      promises.push(explainCode(text).then(explanation => { results.explanation = explanation; }));
+    }
+    
+    await Promise.allSettled(promises);
+    return { success: true, ...results };
+  } catch (error) {
+    console.error('AI processing failed:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Individual AI operations
+ipcMain.handle('ai-explain-code', async (_event, text) => {
+  try {
+    const explanation = await explainCode(text);
+    return { success: true, explanation };
+  } catch (error) {
+    console.error('Code explanation failed:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('ai-summarize', async (_event, text) => {
+  try {
+    const summary = await summarizeText(text);
+    return { success: true, summary };
+  } catch (error) {
+    console.error('Text summarization failed:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('ai-suggest-tags', async (_event, text, context) => {
+  try {
+    const tags = await suggestTags(text, context);
+    return { success: true, tags };
+  } catch (error) {
+    console.error('Tag suggestion failed:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Update snippet with AI results
+ipcMain.handle('update-snippet-ai', async (_event, id, aiData) => {
+  try {
+    const updated = updateSnippetAi(id, aiData);
+    if (updated) {
+      return { success: true, snippet: updated };
+    } else {
+      return { success: false, error: 'Snippet not found' };
+    }
+  } catch (error) {
+    console.error('Update snippet AI failed:', error);
+    return { success: false, error: error.message };
+  }
 });
 
 ipcMain.handle('save-snippet', async (_event, snippet) => {
@@ -426,11 +507,23 @@ ipcMain.handle('window-set-collapsed', (_event, collapsed) => {
 });
 
 // Settings IPC
-ipcMain.handle('get-settings', () => ({ appearance: settings.appearance }));
+ipcMain.handle('get-settings', () => ({ 
+  appearance: settings.appearance,
+  ai: settings.ai
+}));
 ipcMain.handle('set-settings', (_event, partial) => {
   settings = { ...settings, ...partial };
+  
+  // Update AI client if AI settings changed
+  if (partial.ai) {
+    setAiSettings(partial.ai);
+  }
+  
   saveSettings();
-  return { appearance: settings.appearance };
+  return { 
+    appearance: settings.appearance,
+    ai: settings.ai
+  };
 });
 
 // UI state (collapsed, etc.)
@@ -438,13 +531,19 @@ ipcMain.handle('get-ui-state', () => ({ collapsed: isCollapsed }));
 
 // Provider status (do not leak secrets)
 ipcMain.handle('get-provider-status', () => ({
-  githubConfigured: !!(settings && settings.providers && settings.providers.githubToken)
+  githubConfigured: !!(settings && settings.providers && settings.providers.githubToken),
+  openRouterConfigured: !!(settings && settings.providers && settings.providers.openRouterKey)
 }));
 
 // Set provider credential (write-only)
 ipcMain.handle('set-provider-credential', (_event, { provider, value }) => {
   if (!settings.providers) settings.providers = {};
-  if (provider === 'github') settings.providers.githubToken = String(value || '');
+  if (provider === 'github') {
+    settings.providers.githubToken = String(value || '');
+  } else if (provider === 'openrouter') {
+    settings.providers.openRouterKey = String(value || '');
+    setOpenRouterKey(settings.providers.openRouterKey);
+  }
   saveSettings();
   return { success: true };
 });

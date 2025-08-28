@@ -29,24 +29,36 @@
       height: 40px;
       margin-bottom: 12px;
       border: none;
-      border-radius: 4px;
+      border-radius: 6px;
       background-color: transparent;
       color: #9fb3c8;
-      font-size: 20px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: background-color 0.2s, color 0.2s;
+      transition: all 0.2s ease;
       -webkit-app-region: no-drag;
+      position: relative;
+    }
+    .sidebar button svg {
+      transition: transform 0.2s ease;
     }
     .sidebar button:hover {
       background-color: #2e333b;
       color: #ffffff;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .sidebar button:hover svg {
+      transform: scale(1.1);
     }
     .sidebar button.active {
-      background-color: #3a3f47;
+      background-color: var(--accent, #2e78c7);
       color: #ffffff;
+      box-shadow: 0 2px 8px rgba(var(--accent-rgb, 46, 120, 199), 0.3);
+    }
+    .sidebar button:active {
+      transform: translateY(0);
     }
     /* Collapsed mode: hide content pane */
     body.collapsed #content {
@@ -253,7 +265,7 @@
     body.light .sidebar { background-color: #ffffff; box-shadow: 2px 0 4px rgba(0,0,0,0.1); }
     body.light .sidebar button { color: #475569; }
     body.light .sidebar button:hover { background-color: #e5e7eb; color: #111827; }
-    body.light .sidebar button.active { background-color: #d1d5db; color: #111827; }
+    body.light .sidebar button.active { background-color: var(--accent); color: #ffffff; }
     body.light #titlebar { background-color: #f3f4f6; border-bottom: 1px solid #e5e7eb; color: #475569; }
     body.light #window-controls button { background-color: #e5e7eb; color: #374151; }
     body.light #window-controls button:hover { background-color: #d1d5db; color: #111827; }
@@ -262,11 +274,39 @@
     body.light .code-block { background-color: #f9fafb; color: #111827; border-color: #e5e7eb; }
     body.light input[type="text"], body.light select, body.light textarea { background-color: #f3f4f6; color: #111827; }
     /* Theme accents */
-    :root { --accent: #2e78c7; }
-    body.theme-blue { --accent: #2e78c7; }
-    body.theme-green { --accent: #2e8c57; }
-    body.theme-purple { --accent: #7a61d1; }
-    body.theme-gray { --accent: #6b7280; }
+    :root { 
+      --accent: #2e78c7; 
+      --accent-rgb: 46, 120, 199;
+    }
+    body.theme-blue { 
+      --accent: #2e78c7; 
+      --accent-rgb: 46, 120, 199;
+    }
+    body.theme-green { 
+      --accent: #2e8c57; 
+      --accent-rgb: 46, 140, 87;
+    }
+    body.theme-purple { 
+      --accent: #7a61d1; 
+      --accent-rgb: 122, 97, 209;
+    }
+    body.theme-gray { 
+      --accent: #6b7280; 
+      --accent-rgb: 107, 114, 128;
+    }
+    /* Loading spinner */
+    .loading {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: currentColor;
+      animation: spin 1s ease-in-out infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
     /* Toasts */
     #toast-container {
       position: fixed;
@@ -282,33 +322,54 @@
       background: rgba(30, 32, 36, 0.95);
       color: #fff;
       padding: 8px 12px;
-      border-radius: 4px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      border-radius: 6px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+      backdrop-filter: blur(8px);
       font-size: 12px;
       pointer-events: auto;
       border-left: 3px solid var(--accent, #2e78c7);
       opacity: 0;
-      transform: translateY(-6px);
-      animation: toast-in 160ms ease-out forwards;
+      transform: translateY(-6px) scale(0.95);
+      animation: toast-in 200ms cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
     }
     .toast.success { border-left-color: #10b981; }
     .toast.error { border-left-color: #ef4444; }
     .toast.warn { border-left-color: #f59e0b; }
     @keyframes toast-in {
-      to { opacity: 1; transform: translateY(0); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
     }
     @keyframes toast-out {
-      to { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 0; transform: translateY(-8px) scale(0.95); }
     }
   </style>
 </head>
 <body>
   <div class="sidebar">
-    <button id="btn-codes" title="Codes">📄</button>
-    <button id="btn-cap" title="Cap">🎯</button>
-    <button id="btn-ai" title="AI">🤖</button>
-    <button id="btn-settings" title="Settings">⚙️</button>
-    <button id="btn-share" title="Share">📤</button>
+    <button id="btn-codes" title="View saved code snippets">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+      </svg>
+    </button>
+    <button id="btn-cap" title="Capture screen region">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M9,2V7.38L10.38,6H14.62L16,7.38V2H9M7.38,8L2,13.38V17.62L3.38,19H8V13.38L7.38,8M13.38,8L12,9.38V15.62L13.38,17H17.62L19,15.62V9.38L17.62,8H13.38M8,21V15.62L6.62,17H2.38L1,15.62V21H8M10,15.62V21H15.62L17,19.62V15.62L15.62,14H10.38L10,15.62Z"/>
+      </svg>
+    </button>
+    <button id="btn-ai" title="AI features and settings">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12,2A2,2 0 0,1 14,4C14,4.74 13.6,5.39 13,5.73V7H14A7,7 0 0,1 21,14H22A1,1 0 0,1 23,15V18A1,1 0 0,1 22,19H21V20A2,2 0 0,1 19,22H5A2,2 0 0,1 3,20V19H2A1,1 0 0,1 1,18V15A1,1 0 0,1 2,14H3A7,7 0 0,1 10,7H11V5.73C10.4,5.39 10,4.74 10,4A2,2 0 0,1 12,2M7.5,13A2.5,2.5 0 0,0 5,15.5A2.5,2.5 0 0,0 7.5,18A2.5,2.5 0 0,0 10,15.5A2.5,2.5 0 0,0 7.5,13M16.5,13A2.5,2.5 0 0,0 14,15.5A2.5,2.5 0 0,0 16.5,18A2.5,2.5 0 0,0 19,15.5A2.5,2.5 0 0,0 16.5,13Z"/>
+      </svg>
+    </button>
+    <button id="btn-settings" title="Application settings">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.22,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.22,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/>
+      </svg>
+    </button>
+    <button id="btn-share" title="Share and export snippets">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M21,12L14,5V9C7,10 4,15 3,20C5.5,16.5 9,14.9 14,14.9V19L21,12Z"/>
+      </svg>
+    </button>
   </div>
   <div id="content">
     <div id="titlebar">
@@ -324,8 +385,49 @@
       <ul id="codes-list"></ul>
     </div>
     <div id="panel-ai" class="panel">
-      <h3>AI Settings (Stub)</h3>
-      <p>AI summarisation and tag suggestions are currently stubbed.  Future versions will allow you to choose a provider and supply an API key.</p>
+      <h3>AI Features</h3>
+      <div class="settings-item">
+        <label for="openrouter-key">OpenRouter API Key</label>
+        <input type="password" id="openrouter-key" placeholder="Enter your OpenRouter API key" />
+        <div style="margin-top:6px; display:flex; gap:8px; align-items:center;">
+          <button id="save-openrouter-key" class="small-button">Save API Key</button>
+          <small id="openrouter-status" style="opacity:0.8;"></small>
+        </div>
+        <small style="opacity:0.7; display:block; margin-top:4px;">Get a free API key from <a href="#" id="openrouter-link" style="color: var(--accent);">openrouter.ai</a></small>
+      </div>
+      <div class="settings-item">
+        <label>AI Features</label>
+        <div style="display:flex; flex-direction:column; gap:8px; margin-top:6px;">
+          <label style="display:flex; align-items:center; gap:8px; font-size:14px;">
+            <input type="checkbox" id="ai-enabled" checked /> Enable AI processing
+          </label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:14px; margin-left:20px;">
+            <input type="checkbox" id="ai-explain" checked /> Code explanation
+          </label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:14px; margin-left:20px;">
+            <input type="checkbox" id="ai-summarize" checked /> Text summarization
+          </label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:14px; margin-left:20px;">
+            <input type="checkbox" id="ai-tags" checked /> Smart tag suggestions
+          </label>
+        </div>
+      </div>
+      <div class="settings-item">
+        <label for="ai-model">AI Model</label>
+        <select id="ai-model">
+          <option value="deepseek/deepseek-r1" selected>DeepSeek R1 (Free)</option>
+          <option value="openai/gpt-3.5-turbo">GPT-3.5 Turbo</option>
+          <option value="anthropic/claude-3-haiku">Claude 3 Haiku</option>
+        </select>
+      </div>
+      <div class="settings-item">
+        <button id="save-ai-settings" class="small-button">Save AI Settings</button>
+      </div>
+      <div class="settings-item" id="ai-status-section" style="display:none;">
+        <div style="padding:8px; background:rgba(var(--accent-rgb), 0.1); border-radius:4px; border-left:3px solid var(--accent);">
+          <small id="ai-usage-status" style="opacity:0.9;">Ready to process snippets with AI</small>
+        </div>
+      </div>
     </div>
     <div id="panel-settings" class="panel">
       <h3>Settings</h3>

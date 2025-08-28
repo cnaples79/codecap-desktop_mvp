@@ -44,6 +44,20 @@ const githubTokenInput = document.getElementById('github-token');
 const saveGithubTokenBtn = document.getElementById('save-github-token');
 const githubStatus = document.getElementById('github-status');
 
+// AI settings controls
+const openRouterKeyInput = document.getElementById('openrouter-key');
+const saveOpenRouterKeyBtn = document.getElementById('save-openrouter-key');
+const openRouterStatus = document.getElementById('openrouter-status');
+const openRouterLink = document.getElementById('openrouter-link');
+const aiEnabledCheckbox = document.getElementById('ai-enabled');
+const aiExplainCheckbox = document.getElementById('ai-explain');
+const aiSummarizeCheckbox = document.getElementById('ai-summarize');
+const aiTagsCheckbox = document.getElementById('ai-tags');
+const aiModelSelect = document.getElementById('ai-model');
+const saveAiSettingsBtn = document.getElementById('save-ai-settings');
+const aiStatusSection = document.getElementById('ai-status-section');
+const aiUsageStatus = document.getElementById('ai-usage-status');
+
 // Toasts
 const toastContainer = document.getElementById('toast-container');
 function showToast(message, type = 'success', duration = 2200) {
@@ -68,6 +82,7 @@ let allSnippets = [];
 let isCollapsed = false;
 let currentSettings = null;
 let shareSelected = new Set();
+let aiProcessingSnippets = new Set();
 
 function setActiveButton(button) {
   [btnCodes, btnCap, btnAi, btnSettings, btnShare].forEach(btn => btn.classList.remove('active'));
@@ -96,6 +111,15 @@ function applyAppearance(settings) {
   document.body.classList.add(`theme-${theme}`);
 }
 
+function applyAiSettings(settings) {
+  if (!settings || !settings.ai) return;
+  if (aiEnabledCheckbox) aiEnabledCheckbox.checked = settings.ai.enabled !== false;
+  if (aiExplainCheckbox) aiExplainCheckbox.checked = settings.ai.explainCode !== false;
+  if (aiSummarizeCheckbox) aiSummarizeCheckbox.checked = settings.ai.summarizeText !== false;
+  if (aiTagsCheckbox) aiTagsCheckbox.checked = settings.ai.suggestTags !== false;
+  if (aiModelSelect) aiModelSelect.value = settings.ai.model || 'deepseek/deepseek-r1';
+}
+
 async function loadSnippets() {
   allSnippets = await window.api.getSnippets();
   renderList(allSnippets);
@@ -118,21 +142,41 @@ function renderList(list) {
     codeEl.className = 'code-block';
     codeEl.textContent = item.body;
 
-    // Action buttons (edit/delete)
+    // AI processing indicator and results
+    if (item.aiExplanation) {
+      const aiExplanation = document.createElement('div');
+      aiExplanation.style.cssText = 'margin-top:6px; padding:6px 8px; background:rgba(var(--accent-rgb),0.1); border-radius:4px; font-size:12px; color:#c0c0c0; border-left:2px solid var(--accent);';
+      aiExplanation.innerHTML = `<strong>AI Explanation:</strong> ${item.aiExplanation}`;
+      codeEl.appendChild(aiExplanation);
+    }
+
+    // Action buttons (edit/delete/ai)
     const actions = document.createElement('div');
     actions.className = 'snippet-actions';
+    
+    // AI button
+    const aiBtn = document.createElement('button');
+    aiBtn.className = 'action-btn';
+    aiBtn.title = aiProcessingSnippets.has(item.id) ? 'Processing with AI...' : 'Process with AI';
+    aiBtn.innerHTML = aiProcessingSnippets.has(item.id) ? '<span class="loading"></span>' : '🤖';
+    aiBtn.disabled = aiProcessingSnippets.has(item.id);
+    
     const shareBtn = document.createElement('button');
     shareBtn.className = 'action-btn';
     shareBtn.title = 'Share';
-    shareBtn.textContent = '📤';
+    shareBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M21,12L14,5V9C7,10 4,15 3,20C5.5,16.5 9,14.9 14,14.9V19L21,12Z"/></svg>';
+    
     const editBtn = document.createElement('button');
     editBtn.className = 'action-btn';
     editBtn.title = 'Edit';
-    editBtn.textContent = '✎';
+    editBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/></svg>';
+    
     const delBtn = document.createElement('button');
     delBtn.className = 'action-btn';
     delBtn.title = 'Delete';
-    delBtn.textContent = '🗑';
+    delBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/></svg>';
+    
+    actions.appendChild(aiBtn);
     actions.appendChild(shareBtn);
     actions.appendChild(editBtn);
     actions.appendChild(delBtn);
@@ -167,6 +211,39 @@ function renderList(list) {
       shareSelected = new Set([item.id]);
       renderShareList(shareSearch ? shareSearch.value.trim() : '');
       showToast('Prepared to share this snippet', 'success', 1400);
+    });
+
+    // AI processing
+    aiBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (aiProcessingSnippets.has(item.id)) return;
+      
+      aiProcessingSnippets.add(item.id);
+      aiBtn.innerHTML = '<span class="loading"></span>';
+      aiBtn.disabled = true;
+      aiBtn.title = 'Processing with AI...';
+      
+      try {
+        const result = await window.api.aiProcess(item.body, { explain: true, summarize: true, tags: true });
+        if (result.success) {
+          await window.api.saveSnippet({
+            ...item,
+            aiSummary: result.summary,
+            aiTags: result.tags,
+            aiExplanation: result.explanation,
+            aiProcessed: true
+          });
+          await loadSnippets();
+          showToast('AI processing completed', 'success');
+        } else {
+          throw new Error(result.error || 'AI processing failed');
+        }
+      } catch (err) {
+        console.error('AI processing failed', err);
+        showToast(`AI processing failed: ${err.message}`, 'error');
+      } finally {
+        aiProcessingSnippets.delete(item.id);
+      }
     });
 
     // Delete
@@ -311,9 +388,18 @@ async function refreshProviderStatus() {
     if (gistStatus) gistStatus.textContent = status.githubConfigured ? 'GitHub connected' : 'GitHub not configured';
     if (githubStatus) githubStatus.textContent = status.githubConfigured ? 'GitHub connected' : 'GitHub not configured';
     if (shareGistBtn) shareGistBtn.disabled = !status.githubConfigured;
+    
+    // Update OpenRouter status
+    if (openRouterStatus) {
+      openRouterStatus.textContent = status.openRouterConfigured ? 'OpenRouter connected' : 'OpenRouter not configured';
+    }
+    if (aiStatusSection) {
+      aiStatusSection.style.display = status.openRouterConfigured ? 'block' : 'none';
+    }
   } catch (e) {
     if (gistStatus) gistStatus.textContent = '';
     if (githubStatus) githubStatus.textContent = '';
+    if (openRouterStatus) openRouterStatus.textContent = '';
   }
 }
 
@@ -342,6 +428,7 @@ btnCap.addEventListener('click', () => {
 btnAi.addEventListener('click', () => {
   setActiveButton(btnAi);
   showPanel(panelAi);
+  refreshProviderStatus().catch(() => {});
 });
 
 btnSettings.addEventListener('click', () => {
@@ -400,6 +487,7 @@ async function initSettings() {
   try {
     const s = await window.api.getSettings();
     applyAppearance(s);
+    applyAiSettings(s);
     if (modeSelect) modeSelect.value = s.appearance?.mode || 'dark';
     if (themeSelect) themeSelect.value = s.appearance?.theme || 'blue';
     // If using system mode, react to changes
@@ -569,6 +657,52 @@ if (saveGithubTokenBtn) {
     } catch (e) {
       console.error('Save token failed', e);
       showToast('Failed to save GitHub token', 'error');
+    }
+  });
+}
+
+// Provider settings: OpenRouter API key save
+if (saveOpenRouterKeyBtn) {
+  saveOpenRouterKeyBtn.addEventListener('click', async () => {
+    const key = (openRouterKeyInput && openRouterKeyInput.value.trim()) || '';
+    if (!key) { showToast('Paste your OpenRouter API key', 'warn'); return; }
+    try {
+      await window.api.setProviderCredential('openrouter', key);
+      if (openRouterKeyInput) openRouterKeyInput.value = '';
+      await refreshProviderStatus();
+      showToast('OpenRouter API key saved', 'success');
+    } catch (e) {
+      console.error('Save API key failed', e);
+      showToast('Failed to save OpenRouter API key', 'error');
+    }
+  });
+}
+
+// OpenRouter link
+if (openRouterLink) {
+  openRouterLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    window.api.openExternal('https://openrouter.ai/keys');
+  });
+}
+
+// AI Settings save
+if (saveAiSettingsBtn) {
+  saveAiSettingsBtn.addEventListener('click', async () => {
+    try {
+      const aiSettings = {
+        enabled: aiEnabledCheckbox ? aiEnabledCheckbox.checked : true,
+        explainCode: aiExplainCheckbox ? aiExplainCheckbox.checked : true,
+        summarizeText: aiSummarizeCheckbox ? aiSummarizeCheckbox.checked : true,
+        suggestTags: aiTagsCheckbox ? aiTagsCheckbox.checked : true,
+        model: aiModelSelect ? aiModelSelect.value : 'deepseek/deepseek-r1'
+      };
+      
+      await window.api.setSettings({ ai: aiSettings });
+      showToast('AI settings saved', 'success');
+    } catch (e) {
+      console.error('Save AI settings failed', e);
+      showToast('Failed to save AI settings', 'error');
     }
   });
 }

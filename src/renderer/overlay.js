@@ -96,13 +96,25 @@ document.addEventListener('mouseup', async (ev) => {
     aiSummaryDiv.textContent = '';
     modalEl.style.display = 'flex';
     if (aiToggle.checked) {
-      aiSummaryDiv.textContent = 'Generating summary…';
+      aiSummaryDiv.innerHTML = '<div class="ai-loading"><span class="loading-spinner"></span> Processing with AI...</div>';
       try {
-        const aiResult = await window.api.aiProcess(result.text);
-        aiSummaryDiv.textContent = 'Summary: ' + aiResult.summary + '\nTags: ' + aiResult.tags.join(', ');
-        modalEl._aiResult = aiResult;
+        const aiResult = await window.api.aiProcess(result.text, { 
+          explain: true, 
+          summarize: true, 
+          tags: true 
+        });
+        if (aiResult.success) {
+          let content = '';
+          if (aiResult.summary) content += `<strong>Summary:</strong> ${aiResult.summary}<br><br>`;
+          if (aiResult.explanation) content += `<strong>Explanation:</strong> ${aiResult.explanation}<br><br>`;
+          if (aiResult.tags && aiResult.tags.length) content += `<strong>Tags:</strong> ${aiResult.tags.join(', ')}`;
+          aiSummaryDiv.innerHTML = content || 'AI processing completed';
+          modalEl._aiResult = aiResult;
+        } else {
+          aiSummaryDiv.innerHTML = `<span class="ai-error">AI processing failed: ${aiResult.error || 'Unknown error'}</span>`;
+        }
       } catch (err) {
-        aiSummaryDiv.textContent = '';
+        aiSummaryDiv.innerHTML = `<span class="ai-error">AI processing failed: ${err.message || 'Network error'}</span>`;
       }
     }
   } catch (err) {
@@ -135,7 +147,9 @@ btnSave.addEventListener('click', async () => {
     category,
     tags: [],
     aiSummary,
-    aiTags
+    aiTags,
+    aiExplanation: aiResult?.explanation,
+    aiProcessed: !!(aiToggle.checked && aiResult)
   };
   await window.api.saveSnippet(snippet);
   resetOverlay();
