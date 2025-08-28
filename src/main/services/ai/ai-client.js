@@ -35,14 +35,21 @@ async function callOpenRouter(messages, maxTokens = 500) {
       model: aiSettings.model,
       messages: messages,
       max_tokens: maxTokens,
-      temperature: 0.3
+      temperature: 0.7,
+      top_p: 1.0
     };
 
-    const data = Buffer.from(JSON.stringify(payload));
+    console.log('OpenRouter API Request:', {
+      model: payload.model,
+      messageCount: messages.length,
+      maxTokens: maxTokens
+    });
+
+    const data = Buffer.from(JSON.stringify(payload, null, 2));
     const timeout = setTimeout(() => {
       req.destroy();
       reject(new Error('Request timeout - OpenRouter API took too long to respond'));
-    }, 30000); // 30 second timeout
+    }, 60000); // 60 second timeout for AI
     
     const req = https.request({
       method: 'POST',
@@ -51,34 +58,52 @@ async function callOpenRouter(messages, maxTokens = 500) {
       headers: {
         'Authorization': `Bearer ${openRouterApiKey}`,
         'Content-Type': 'application/json',
-        'Content-Length': data.length,
-        'HTTP-Referer': 'https://codecap.desktop',
-        'X-Title': 'CodeCap Desktop'
+        'HTTP-Referer': 'https://codecap.app',
+        'X-Title': 'CodeCap Desktop',
+        'Content-Length': data.length
       }
     }, (res) => {
       clearTimeout(timeout);
       let body = '';
       res.on('data', chunk => body += chunk);
       res.on('end', () => {
+        console.log('OpenRouter API Response Status:', res.statusCode);
+        console.log('OpenRouter API Response Headers:', res.headers);
+        
         try {
           const json = JSON.parse(body);
-          if (res.statusCode === 200 && json.choices && json.choices[0]) {
-            const content = json.choices[0].message.content.trim();
-            if (!content) {
-              reject(new Error('AI returned empty response'));
+          console.log('OpenRouter API Response Body:', JSON.stringify(json, null, 2));
+          
+          if (res.statusCode === 200 && json.choices && json.choices.length > 0) {
+            const choice = json.choices[0];
+            if (choice.message && choice.message.content) {
+              const content = choice.message.content.trim();
+              if (!content || content.length === 0) {
+                console.error('Empty content from OpenRouter:', choice);
+                reject(new Error('AI returned empty response'));
+              } else {
+                console.log('OpenRouter Success - Content length:', content.length);
+                resolve(content);
+              }
             } else {
-              resolve(content);
+              console.error('Invalid choice structure:', choice);
+              reject(new Error('Invalid response structure from OpenRouter API'));
             }
           } else if (res.statusCode === 401) {
             reject(new Error('Invalid API key. Please check your OpenRouter API key.'));
           } else if (res.statusCode === 429) {
             reject(new Error('Rate limit exceeded. Please try again in a moment.'));
+          } else if (res.statusCode === 400) {
+            const errorMsg = json.error?.message || 'Bad request to OpenRouter API';
+            reject(new Error(`Bad request: ${errorMsg}`));
           } else if (json.error) {
             reject(new Error(`OpenRouter API error: ${json.error.message || json.error.code || 'Unknown error'}`));
           } else {
+            console.error('Unexpected response:', { status: res.statusCode, body: body.substring(0, 500) });
             reject(new Error(`HTTP ${res.statusCode}: ${body.substring(0, 200)}`));
           }
         } catch (e) {
+          console.error('Failed to parse OpenRouter response:', e, 'Body:', body.substring(0, 500));
           reject(new Error(`Failed to parse response: ${e.message}`));
         }
       });
@@ -86,6 +111,7 @@ async function callOpenRouter(messages, maxTokens = 500) {
 
     req.on('error', (err) => {
       clearTimeout(timeout);
+      console.error('OpenRouter request error:', err);
       if (err.code === 'ENOTFOUND') {
         reject(new Error('Network error: Unable to reach OpenRouter API'));
       } else if (err.code === 'ECONNREFUSED') {
@@ -116,16 +142,12 @@ async function explainCode(codeText) {
   try {
     const messages = [
       {
-        role: 'system',
-        content: 'You are a helpful programming assistant. Explain code snippets clearly and concisely. Focus on what the code does, key concepts, and any notable patterns or potential issues. Keep explanations under 200 words.'
-      },
-      {
         role: 'user',
-        content: `Please explain this code:\n\n${codeText}`
+        content: `Please explain what this code does. Be clear and concise, focusing on the main functionality and any important concepts. Keep your explanation under 200 words.\n\nCode to explain:\n\`\`\`\n${codeText}\n\`\`\``
       }
     ];
 
-    return await callOpenRouter(messages, 300);
+    return await callOpenRouter(messages, 400);
   } catch (error) {
     console.error('AI code explanation failed:', error);
     throw error; // Re-throw to let calling code handle it
@@ -151,16 +173,12 @@ async function summarizeText(text) {
   try {
     const messages = [
       {
-        role: 'system',
-        content: 'You are a helpful assistant that creates concise summaries. Summarize the given text in 1-2 sentences, capturing the main points and purpose. Keep it under 150 words.'
-      },
-      {
         role: 'user',
-        content: `Please summarize this text:\n\n${text}`
+        content: `Please provide a concise summary of the following text in 1-2 sentences. Focus on the main points and purpose:\n\n${text}`
       }
     ];
 
-    const result = await callOpenRouter(messages, 200);
+    const result = await callOpenRouter(messages, 300);
     return result || 'Summary could not be generated';
   } catch (error) {
     console.error('AI text summarization failed:', error);
@@ -188,16 +206,12 @@ async function suggestTags(text, context = 'general') {
   try {
     const messages = [
       {
-        role: 'system',
-        content: 'You are a helpful assistant that suggests relevant tags for content. Analyze the text and suggest 3-5 relevant, concise tags that describe the main topics, technologies, or concepts. Return only the tags as a comma-separated list, no explanations.'
-      },
-      {
         role: 'user',
-        content: `Please suggest tags for this ${context} content:\n\n${text}`
+        content: `Please suggest 3-5 relevant tags for this ${context} content. Return only the tags as a comma-separated list with no explanations.\n\nContent:\n${text.substring(0, 2000)}`
       }
     ];
 
-    const response = await callOpenRouter(messages, 100);
+    const response = await callOpenRouter(messages, 150);
     if (!response) return getKeywordTags(text);
     
     const tags = response.split(',').map(tag => tag.trim().toLowerCase()).filter(tag => tag.length > 0 && tag.length < 30);
