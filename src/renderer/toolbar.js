@@ -118,7 +118,7 @@ function applyAiSettings(settings) {
     if (aiExplainCheckbox) aiExplainCheckbox.checked = settings.ai.explainCode !== false;
     if (aiSummarizeCheckbox) aiSummarizeCheckbox.checked = settings.ai.summarizeText !== false;
     if (aiTagsCheckbox) aiTagsCheckbox.checked = settings.ai.suggestTags !== false;
-    if (aiModelSelect) aiModelSelect.value = settings.ai.model || 'deepseek/deepseek-r1-0528:free';
+    if (aiModelSelect) aiModelSelect.value = settings.ai.model || 'moonshotai/kimi-k2:free';
   } catch (error) {
     console.error('Error applying AI settings:', error);
   }
@@ -699,7 +699,7 @@ if (saveAiSettingsBtn) {
         explainCode: aiExplainCheckbox ? aiExplainCheckbox.checked : true,
         summarizeText: aiSummarizeCheckbox ? aiSummarizeCheckbox.checked : true,
         suggestTags: aiTagsCheckbox ? aiTagsCheckbox.checked : true,
-        model: aiModelSelect ? aiModelSelect.value : 'deepseek/deepseek-r1'
+        model: aiModelSelect ? aiModelSelect.value : 'moonshotai/kimi-k2:free'
       };
       
       await window.api.setSettings({ ai: aiSettings });

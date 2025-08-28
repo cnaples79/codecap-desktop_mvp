@@ -37,7 +37,7 @@ let settings = {
     explainCode: true,
     summarizeText: true,
     suggestTags: true,
-    model: 'deepseek/deepseek-r1-0528:free'
+    model: 'moonshotai/kimi-k2:free'
   }
 };
 
