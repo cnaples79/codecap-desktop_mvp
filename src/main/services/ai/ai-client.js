@@ -6,7 +6,7 @@ let aiSettings = {
   explainCode: true,
   summarizeText: true,
   suggestTags: true,
-  model: 'deepseek/deepseek-r1'
+  model: 'deepseek/deepseek-r1-0528:free'
 };
 
 function setOpenRouterKey(apiKey) {
@@ -23,7 +23,11 @@ function getAiSettings() {
 
 async function callOpenRouter(messages, maxTokens = 500) {
   if (!openRouterApiKey) {
-    throw new Error('OpenRouter API key not configured');
+    throw new Error('OpenRouter API key not configured. Please add your API key in AI Settings.');
+  }
+
+  if (!aiSettings.enabled) {
+    throw new Error('AI processing is disabled in settings.');
   }
 
   return new Promise((resolve, reject) => {
@@ -35,6 +39,11 @@ async function callOpenRouter(messages, maxTokens = 500) {
     };
 
     const data = Buffer.from(JSON.stringify(payload));
+    const timeout = setTimeout(() => {
+      req.destroy();
+      reject(new Error('Request timeout - OpenRouter API took too long to respond'));
+    }, 30000); // 30 second timeout
+    
     const req = https.request({
       method: 'POST',
       hostname: 'openrouter.ai',
@@ -47,23 +56,45 @@ async function callOpenRouter(messages, maxTokens = 500) {
         'X-Title': 'CodeCap Desktop'
       }
     }, (res) => {
+      clearTimeout(timeout);
       let body = '';
       res.on('data', chunk => body += chunk);
       res.on('end', () => {
         try {
           const json = JSON.parse(body);
           if (res.statusCode === 200 && json.choices && json.choices[0]) {
-            resolve(json.choices[0].message.content.trim());
+            const content = json.choices[0].message.content.trim();
+            if (!content) {
+              reject(new Error('AI returned empty response'));
+            } else {
+              resolve(content);
+            }
+          } else if (res.statusCode === 401) {
+            reject(new Error('Invalid API key. Please check your OpenRouter API key.'));
+          } else if (res.statusCode === 429) {
+            reject(new Error('Rate limit exceeded. Please try again in a moment.'));
+          } else if (json.error) {
+            reject(new Error(`OpenRouter API error: ${json.error.message || json.error.code || 'Unknown error'}`));
           } else {
-            reject(new Error(`OpenRouter API error: ${json.error?.message || body}`));
+            reject(new Error(`HTTP ${res.statusCode}: ${body.substring(0, 200)}`));
           }
         } catch (e) {
-          reject(new Error(`Failed to parse OpenRouter response: ${e.message}`));
+          reject(new Error(`Failed to parse response: ${e.message}`));
         }
       });
     });
 
-    req.on('error', reject);
+    req.on('error', (err) => {
+      clearTimeout(timeout);
+      if (err.code === 'ENOTFOUND') {
+        reject(new Error('Network error: Unable to reach OpenRouter API'));
+      } else if (err.code === 'ECONNREFUSED') {
+        reject(new Error('Connection refused: OpenRouter API is unavailable'));
+      } else {
+        reject(new Error(`Network error: ${err.message}`));
+      }
+    });
+    
     req.write(data);
     req.end();
   });
@@ -71,11 +102,15 @@ async function callOpenRouter(messages, maxTokens = 500) {
 
 async function explainCode(codeText) {
   if (!aiSettings.enabled || !aiSettings.explainCode) {
-    return 'AI code explanation is disabled';
+    throw new Error('AI code explanation is disabled in settings');
   }
 
   if (!codeText || codeText.trim().length === 0) {
-    return 'No code provided to explain';
+    throw new Error('No code provided to explain');
+  }
+
+  if (codeText.length > 5000) {
+    throw new Error('Code snippet is too long (max 5000 characters)');
   }
 
   try {
@@ -93,7 +128,7 @@ async function explainCode(codeText) {
     return await callOpenRouter(messages, 300);
   } catch (error) {
     console.error('AI code explanation failed:', error);
-    return `Code explanation failed: ${error.message}`;
+    throw error; // Re-throw to let calling code handle it
   }
 }
 
@@ -106,7 +141,11 @@ async function summarizeText(text) {
   }
 
   if (!text || text.trim().length === 0) {
-    return 'No content to summarize';
+    throw new Error('No content to summarize');
+  }
+
+  if (text.length > 10000) {
+    throw new Error('Text is too long to summarize (max 10000 characters)');
   }
 
   try {
@@ -121,38 +160,29 @@ async function summarizeText(text) {
       }
     ];
 
-    return await callOpenRouter(messages, 200);
+    const result = await callOpenRouter(messages, 200);
+    return result || 'Summary could not be generated';
   } catch (error) {
     console.error('AI text summarization failed:', error);
-    // Fallback to simple truncation
+    // For summarization, fall back to simple truncation instead of throwing
     const trimmed = text.trim();
     if (trimmed.length <= 200) return trimmed;
-    return trimmed.slice(0, 200).trimEnd() + '…';
+    return trimmed.slice(0, 200).trimEnd() + '… (AI summarization failed)';
   }
 }
 
 async function suggestTags(text, context = 'general') {
   if (!aiSettings.enabled || !aiSettings.suggestTags) {
     // Fallback to simple keyword extraction
-    const words = text
-      .toLowerCase()
-      .replace(/[^a-z0-9_\s]/g, ' ')
-      .split(/\s+/)
-      .filter(w => w.length > 4);
-    const seen = new Set();
-    const tags = [];
-    for (const word of words) {
-      if (!seen.has(word)) {
-        seen.add(word);
-        tags.push(word);
-        if (tags.length === 3) break;
-      }
-    }
-    return tags;
+    return getKeywordTags(text);
   }
 
   if (!text || text.trim().length === 0) {
     return [];
+  }
+
+  if (text.length > 8000) {
+    throw new Error('Text is too long for tag suggestion (max 8000 characters)');
   }
 
   try {
@@ -168,27 +198,33 @@ async function suggestTags(text, context = 'general') {
     ];
 
     const response = await callOpenRouter(messages, 100);
-    const tags = response.split(',').map(tag => tag.trim().toLowerCase()).filter(tag => tag.length > 0);
+    if (!response) return getKeywordTags(text);
+    
+    const tags = response.split(',').map(tag => tag.trim().toLowerCase()).filter(tag => tag.length > 0 && tag.length < 30);
     return tags.slice(0, 5); // Limit to 5 tags
   } catch (error) {
     console.error('AI tag suggestion failed:', error);
     // Fallback to simple keyword extraction
-    const words = text
-      .toLowerCase()
-      .replace(/[^a-z0-9_\s]/g, ' ')
-      .split(/\s+/)
-      .filter(w => w.length > 4);
-    const seen = new Set();
-    const tags = [];
-    for (const word of words) {
-      if (!seen.has(word)) {
-        seen.add(word);
-        tags.push(word);
-        if (tags.length === 3) break;
-      }
-    }
-    return tags;
+    return getKeywordTags(text);
   }
+}
+
+function getKeywordTags(text) {
+  const words = text
+    .toLowerCase()
+    .replace(/[^a-z0-9_\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 4 && w.length < 20);
+  const seen = new Set();
+  const tags = [];
+  for (const word of words) {
+    if (!seen.has(word)) {
+      seen.add(word);
+      tags.push(word);
+      if (tags.length === 3) break;
+    }
+  }
+  return tags;
 }
 
 async function detectLanguage(text) {

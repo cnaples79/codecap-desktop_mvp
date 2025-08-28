@@ -113,11 +113,15 @@ function applyAppearance(settings) {
 
 function applyAiSettings(settings) {
   if (!settings || !settings.ai) return;
-  if (aiEnabledCheckbox) aiEnabledCheckbox.checked = settings.ai.enabled !== false;
-  if (aiExplainCheckbox) aiExplainCheckbox.checked = settings.ai.explainCode !== false;
-  if (aiSummarizeCheckbox) aiSummarizeCheckbox.checked = settings.ai.summarizeText !== false;
-  if (aiTagsCheckbox) aiTagsCheckbox.checked = settings.ai.suggestTags !== false;
-  if (aiModelSelect) aiModelSelect.value = settings.ai.model || 'deepseek/deepseek-r1';
+  try {
+    if (aiEnabledCheckbox) aiEnabledCheckbox.checked = settings.ai.enabled !== false;
+    if (aiExplainCheckbox) aiExplainCheckbox.checked = settings.ai.explainCode !== false;
+    if (aiSummarizeCheckbox) aiSummarizeCheckbox.checked = settings.ai.summarizeText !== false;
+    if (aiTagsCheckbox) aiTagsCheckbox.checked = settings.ai.suggestTags !== false;
+    if (aiModelSelect) aiModelSelect.value = settings.ai.model || 'deepseek/deepseek-r1-0528:free';
+  } catch (error) {
+    console.error('Error applying AI settings:', error);
+  }
 }
 
 async function loadSnippets() {

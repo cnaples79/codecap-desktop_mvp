@@ -37,7 +37,7 @@ let settings = {
     explainCode: true,
     summarizeText: true,
     suggestTags: true,
-    model: 'deepseek/deepseek-r1'
+    model: 'deepseek/deepseek-r1-0528:free'
   }
 };
 
@@ -361,27 +361,55 @@ ipcMain.handle('capture-region', async (_event, rect) => {
 
 ipcMain.handle('ai-process', async (_event, text, options = {}) => {
   try {
+    if (!text || typeof text !== 'string' || text.trim().length === 0) {
+      return { success: false, error: 'No text provided for AI processing' };
+    }
+
     const results = {};
     const language = await detectLanguage(text);
     results.language = language;
     
     // Run AI processing based on options
     const promises = [];
+    
     if (options.summarize !== false) {
-      promises.push(summarizeText(text).then(summary => { results.summary = summary; }));
+      promises.push(
+        summarizeText(text)
+          .then(summary => { results.summary = summary; })
+          .catch(err => { 
+            console.error('Summarization failed:', err);
+            results.summary = 'Summarization failed: ' + err.message;
+          })
+      );
     }
+    
     if (options.tags !== false) {
-      promises.push(suggestTags(text, language).then(tags => { results.tags = tags; }));
+      promises.push(
+        suggestTags(text, language)
+          .then(tags => { results.tags = Array.isArray(tags) ? tags : []; })
+          .catch(err => {
+            console.error('Tag suggestion failed:', err);
+            results.tags = [];
+          })
+      );
     }
+    
     if (options.explain && language === 'code') {
-      promises.push(explainCode(text).then(explanation => { results.explanation = explanation; }));
+      promises.push(
+        explainCode(text)
+          .then(explanation => { results.explanation = explanation; })
+          .catch(err => {
+            console.error('Code explanation failed:', err);
+            results.explanation = 'Code explanation failed: ' + err.message;
+          })
+      );
     }
     
     await Promise.allSettled(promises);
     return { success: true, ...results };
   } catch (error) {
     console.error('AI processing failed:', error);
-    return { success: false, error: error.message };
+    return { success: false, error: error.message || 'AI processing failed' };
   }
 });
 

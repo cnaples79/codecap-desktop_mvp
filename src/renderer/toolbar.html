@@ -307,6 +307,30 @@
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
+    /* AI result styling */
+    .ai-section {
+      margin-bottom: 8px;
+    }
+    .ai-section:last-child {
+      margin-bottom: 0;
+    }
+    .ai-tag {
+      display: inline-block;
+      background: rgba(var(--accent-rgb), 0.2);
+      color: var(--accent);
+      padding: 2px 6px;
+      border-radius: 12px;
+      font-size: 10px;
+      margin-right: 4px;
+      margin-bottom: 2px;
+      border: 1px solid rgba(var(--accent-rgb), 0.3);
+    }
+    .ai-results {
+      color: #c0c0c0;
+    }
+    .ai-results strong {
+      color: var(--accent);
+    }
     /* Toasts */
     #toast-container {
       position: fixed;
@@ -415,7 +439,7 @@
       <div class="settings-item">
         <label for="ai-model">AI Model</label>
         <select id="ai-model">
-          <option value="deepseek/deepseek-r1" selected>DeepSeek R1 (Free)</option>
+          <option value="deepseek/deepseek-r1-0528:free" selected>DeepSeek R1 (Free)</option>
           <option value="openai/gpt-3.5-turbo">GPT-3.5 Turbo</option>
           <option value="anthropic/claude-3-haiku">Claude 3 Haiku</option>
         </select>
