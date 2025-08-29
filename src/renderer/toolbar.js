@@ -135,6 +135,11 @@ async function loadSnippets(preserveExpansion = false) {
 }
 
 function renderList(list, preserveExpansion = false) {
+  // Debug: Log expansion state (comment out after testing)
+  // if (preserveExpansion) {
+  //   console.log('Preserving expansion for snippets:', Array.from(expandedSnippets));
+  // }
+  
   codesList.innerHTML = '';
   list.forEach(item => {
     const li = document.createElement('li');
@@ -223,9 +228,11 @@ function renderList(list, preserveExpansion = false) {
       codeEl.classList.toggle('visible');
       
       if (isVisible) {
+        // Collapsing
         expandedSnippets.delete(item.id);
         aiResultsEl.style.display = 'none';
       } else {
+        // Expanding
         expandedSnippets.add(item.id);
         if (aiResultsEl.innerHTML.trim()) {
           aiResultsEl.style.display = 'block';
@@ -233,12 +240,16 @@ function renderList(list, preserveExpansion = false) {
       }
     });
     
-    // Restore expansion state if preserving
+    // Restore expansion state ONLY if this snippet was previously expanded
     if (preserveExpansion && expandedSnippets.has(item.id)) {
       codeEl.classList.add('visible');
       if (aiResultsEl.innerHTML.trim()) {
         aiResultsEl.style.display = 'block';
       }
+    } else {
+      // Ensure collapsed state is properly maintained
+      codeEl.classList.remove('visible');
+      aiResultsEl.style.display = 'none';
     }
 
     // Right click: copy full snippet body to clipboard
@@ -293,7 +304,74 @@ function renderList(list, preserveExpansion = false) {
           };
           
           await window.api.saveSnippet(updatedSnippet);
-          await loadSnippets(true); // Preserve expansion states
+          
+          // Update the item in our local array instead of full reload
+          const index = allSnippets.findIndex(s => s.id === item.id);
+          if (index >= 0) {
+            allSnippets[index] = updatedSnippet;
+            
+            // Update just the AI results section for this snippet
+            const currentLi = li; // Reference to current list item
+            const currentAiResults = currentLi.querySelector('.ai-results');
+            if (currentAiResults) {
+              // Update AI content
+              let aiContent = '';
+              if (updatedSnippet.aiExplanation) {
+                aiContent += `<div class="ai-section"><strong>🤖 AI Explanation:</strong><br>${updatedSnippet.aiExplanation}</div>`;
+              }
+              if (updatedSnippet.aiSummary) {
+                aiContent += `<div class="ai-section"><strong>📝 AI Summary:</strong><br>${updatedSnippet.aiSummary}</div>`;
+              }
+              if (updatedSnippet.aiTags && updatedSnippet.aiTags.length > 0) {
+                const tagElements = updatedSnippet.aiTags.map(tag => `<span class="ai-tag">${tag}</span>`).join('');
+                aiContent += `<div class="ai-section"><strong>🏷️ AI Tags:</strong><br>${tagElements}</div>`;
+              }
+              
+              currentAiResults.innerHTML = aiContent;
+              currentAiResults.style.cssText = 'margin-top:8px; padding:8px; background:rgba(var(--accent-rgb),0.05); border:1px solid rgba(var(--accent-rgb),0.2); border-radius:4px; font-size:12px; line-height:1.4;';
+              
+              // Show AI results if snippet is expanded
+              if (expandedSnippets.has(item.id)) {
+                currentAiResults.style.display = 'block';
+              }
+              
+              // Update action buttons to show clear button
+              const actions = currentLi.querySelector('.snippet-actions');
+              if (actions && !actions.querySelector('.action-btn[title="Clear AI data"]')) {
+                const clearBtn = document.createElement('button');
+                clearBtn.className = 'action-btn';
+                clearBtn.title = 'Clear AI data';
+                clearBtn.innerHTML = '🗑️';
+                clearBtn.addEventListener('click', async (e) => {
+                  e.stopPropagation();
+                  const confirmClear = confirm('Clear all AI data for this snippet?');
+                  if (!confirmClear) return;
+                  
+                  try {
+                    const clearedSnippet = {
+                      ...updatedSnippet,
+                      aiSummary: '',
+                      aiTags: [],
+                      aiExplanation: '',
+                      aiProcessed: false
+                    };
+                    
+                    await window.api.saveSnippet(clearedSnippet);
+                    // Remove clear button and clear AI content
+                    clearBtn.remove();
+                    currentAiResults.innerHTML = '';
+                    currentAiResults.style.display = 'none';
+                    showToast('AI data cleared', 'success');
+                  } catch (err) {
+                    console.error('Clear AI data failed:', err);
+                    showToast('Failed to clear AI data', 'error');
+                  }
+                });
+                actions.insertBefore(clearBtn, actions.children[1]); // Insert after AI button
+              }
+            }
+          }
+          
           showToast('AI processing completed!', 'success');
         } else {
           throw new Error(result?.error || 'AI processing failed');
@@ -328,8 +406,19 @@ function renderList(list, preserveExpansion = false) {
         };
         
         await window.api.saveSnippet(clearedSnippet);
+        
+        // Update local array
+        const index = allSnippets.findIndex(s => s.id === item.id);
+        if (index >= 0) {
+          allSnippets[index] = clearedSnippet;
+        }
+        
+        // Remove clear button and clear AI content inline
+        clearAiBtn.remove();
+        aiResultsEl.innerHTML = '';
+        aiResultsEl.style.display = 'none';
+        
         showToast('AI data cleared', 'success');
-        await loadSnippets(true); // Preserve expansion states
       } catch (err) {
         console.error('Clear AI data failed:', err);
         showToast('Failed to clear AI data', 'error');
@@ -343,7 +432,17 @@ function renderList(list, preserveExpansion = false) {
       if (!ok) return;
       try {
         await window.api.deleteSnippet(item.id);
-        await loadSnippets();
+        
+        // Remove from local tracking
+        expandedSnippets.delete(item.id);
+        const index = allSnippets.findIndex(s => s.id === item.id);
+        if (index >= 0) {
+          allSnippets.splice(index, 1);
+        }
+        
+        // Remove the list item from DOM
+        li.remove();
+        showToast('Snippet deleted', 'success');
       } catch (err) {
         console.error('Delete failed', err);
       }
@@ -396,9 +495,28 @@ function showEditor(li, item, refs) {
     const newBody = inputBody.value;
     try {
       await window.api.saveSnippet({ id: item.id, title: newTitle, body: newBody });
-      await loadSnippets(true); // Preserve expansion states
+      
+      // Update local array
+      const index = allSnippets.findIndex(s => s.id === item.id);
+      if (index >= 0) {
+        allSnippets[index] = { ...allSnippets[index], title: newTitle, body: newBody };
+      }
+      
+      // Update the displayed title and preview
+      titleEl.textContent = newTitle;
+      previewEl.textContent = newBody.slice(0, 80).replace(/\n+/g, ' ');
+      codeEl.textContent = newBody;
+      
+      // Close the editor
+      editor.remove();
+      if (previewEl) previewEl.style.display = '';
+      if (codeEl) codeEl.style.display = '';
+      li.classList.remove('editing');
+      
+      showToast('Snippet saved', 'success');
     } catch (err) {
       console.error('Save failed', err);
+      showToast('Failed to save changes', 'error');
     }
   });
 
