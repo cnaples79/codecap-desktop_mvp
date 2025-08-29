@@ -83,6 +83,7 @@ let isCollapsed = false;
 let currentSettings = null;
 let shareSelected = new Set();
 let aiProcessingSnippets = new Set();
+let expandedSnippets = new Set(); // Track which snippets are expanded
 
 function setActiveButton(button) {
   [btnCodes, btnCap, btnAi, btnSettings, btnShare].forEach(btn => btn.classList.remove('active'));
@@ -124,16 +125,16 @@ function applyAiSettings(settings) {
   }
 }
 
-async function loadSnippets() {
+async function loadSnippets(preserveExpansion = false) {
   allSnippets = await window.api.getSnippets();
-  renderList(allSnippets);
+  renderList(allSnippets, preserveExpansion);
   // keep Share panel in sync
   if (panelShare.classList.contains('active')) {
     renderShareList(shareSearch ? shareSearch.value.trim() : '');
   }
 }
 
-function renderList(list) {
+function renderList(list, preserveExpansion = false) {
   codesList.innerHTML = '';
   list.forEach(item => {
     const li = document.createElement('li');
@@ -220,10 +221,25 @@ function renderList(list) {
     li.addEventListener('click', () => {
       const isVisible = codeEl.classList.contains('visible');
       codeEl.classList.toggle('visible');
-      if (aiResultsEl.innerHTML.trim()) {
-        aiResultsEl.style.display = isVisible ? 'none' : 'block';
+      
+      if (isVisible) {
+        expandedSnippets.delete(item.id);
+        aiResultsEl.style.display = 'none';
+      } else {
+        expandedSnippets.add(item.id);
+        if (aiResultsEl.innerHTML.trim()) {
+          aiResultsEl.style.display = 'block';
+        }
       }
     });
+    
+    // Restore expansion state if preserving
+    if (preserveExpansion && expandedSnippets.has(item.id)) {
+      codeEl.classList.add('visible');
+      if (aiResultsEl.innerHTML.trim()) {
+        aiResultsEl.style.display = 'block';
+      }
+    }
 
     // Right click: copy full snippet body to clipboard
     li.addEventListener('contextmenu', (e) => {
@@ -277,7 +293,7 @@ function renderList(list) {
           };
           
           await window.api.saveSnippet(updatedSnippet);
-          await loadSnippets();
+          await loadSnippets(true); // Preserve expansion states
           showToast('AI processing completed!', 'success');
         } else {
           throw new Error(result?.error || 'AI processing failed');
@@ -313,7 +329,7 @@ function renderList(list) {
         
         await window.api.saveSnippet(clearedSnippet);
         showToast('AI data cleared', 'success');
-        await loadSnippets();
+        await loadSnippets(true); // Preserve expansion states
       } catch (err) {
         console.error('Clear AI data failed:', err);
         showToast('Failed to clear AI data', 'error');
@@ -380,7 +396,7 @@ function showEditor(li, item, refs) {
     const newBody = inputBody.value;
     try {
       await window.api.saveSnippet({ id: item.id, title: newTitle, body: newBody });
-      await loadSnippets();
+      await loadSnippets(true); // Preserve expansion states
     } catch (err) {
       console.error('Save failed', err);
     }
