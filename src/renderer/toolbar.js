@@ -146,12 +146,26 @@ function renderList(list) {
     codeEl.className = 'code-block';
     codeEl.textContent = item.body;
 
-    // AI processing indicator and results
-    if (item.aiExplanation) {
-      const aiExplanation = document.createElement('div');
-      aiExplanation.style.cssText = 'margin-top:6px; padding:6px 8px; background:rgba(var(--accent-rgb),0.1); border-radius:4px; font-size:12px; color:#c0c0c0; border-left:2px solid var(--accent);';
-      aiExplanation.innerHTML = `<strong>AI Explanation:</strong> ${item.aiExplanation}`;
-      codeEl.appendChild(aiExplanation);
+    // AI results section
+    const aiResultsEl = document.createElement('div');
+    aiResultsEl.className = 'ai-results';
+    aiResultsEl.style.cssText = 'margin-top:8px; display:none;';
+    
+    if (item.aiProcessed && (item.aiSummary || item.aiExplanation || (item.aiTags && item.aiTags.length))) {
+      let aiContent = '';
+      if (item.aiExplanation) {
+        aiContent += `<div class="ai-section"><strong>🤖 AI Explanation:</strong><br>${item.aiExplanation}</div>`;
+      }
+      if (item.aiSummary) {
+        aiContent += `<div class="ai-section"><strong>📝 AI Summary:</strong><br>${item.aiSummary}</div>`;
+      }
+      if (item.aiTags && item.aiTags.length > 0) {
+        const tagElements = item.aiTags.map(tag => `<span class="ai-tag">${tag}</span>`).join('');
+        aiContent += `<div class="ai-section"><strong>🏷️ AI Tags:</strong><br>${tagElements}</div>`;
+      }
+      
+      aiResultsEl.innerHTML = aiContent;
+      aiResultsEl.style.cssText = 'margin-top:8px; padding:8px; background:rgba(var(--accent-rgb),0.05); border:1px solid rgba(var(--accent-rgb),0.2); border-radius:4px; font-size:12px; line-height:1.4;';
     }
 
     // Action buttons (edit/delete/ai)
@@ -161,9 +175,19 @@ function renderList(list) {
     // AI button
     const aiBtn = document.createElement('button');
     aiBtn.className = 'action-btn';
-    aiBtn.title = aiProcessingSnippets.has(item.id) ? 'Processing with AI...' : 'Process with AI';
-    aiBtn.innerHTML = aiProcessingSnippets.has(item.id) ? '<span class="loading"></span>' : '🤖';
-    aiBtn.disabled = aiProcessingSnippets.has(item.id);
+    const isProcessing = aiProcessingSnippets.has(item.id);
+    const hasAiContent = item.aiProcessed && (item.aiExplanation || item.aiSummary || (item.aiTags && item.aiTags.length > 0));
+    
+    aiBtn.title = isProcessing ? 'Processing with AI...' : hasAiContent ? 'Reprocess with AI' : 'Process with AI';
+    aiBtn.innerHTML = isProcessing ? '<span class="loading"></span>' : hasAiContent ? '🔄' : '🤖';
+    aiBtn.disabled = isProcessing;
+    
+    // Clear AI button (only show if has AI content)
+    const clearAiBtn = document.createElement('button');
+    clearAiBtn.className = 'action-btn';
+    clearAiBtn.title = 'Clear AI data';
+    clearAiBtn.innerHTML = '🗑️';
+    clearAiBtn.style.display = hasAiContent ? 'flex' : 'none';
     
     const shareBtn = document.createElement('button');
     shareBtn.className = 'action-btn';
@@ -181,6 +205,7 @@ function renderList(list) {
     delBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/></svg>';
     
     actions.appendChild(aiBtn);
+    if (hasAiContent) actions.appendChild(clearAiBtn);
     actions.appendChild(shareBtn);
     actions.appendChild(editBtn);
     actions.appendChild(delBtn);
@@ -188,11 +213,16 @@ function renderList(list) {
     li.appendChild(titleEl);
     li.appendChild(previewEl);
     li.appendChild(codeEl);
+    li.appendChild(aiResultsEl);
     li.appendChild(actions);
 
     // Left click: toggle expanded code visibility
     li.addEventListener('click', () => {
+      const isVisible = codeEl.classList.contains('visible');
       codeEl.classList.toggle('visible');
+      if (aiResultsEl.innerHTML.trim()) {
+        aiResultsEl.style.display = isVisible ? 'none' : 'block';
+      }
     });
 
     // Right click: copy full snippet body to clipboard
@@ -222,31 +252,71 @@ function renderList(list) {
       e.stopPropagation();
       if (aiProcessingSnippets.has(item.id)) return;
       
+      if (!item.body || item.body.trim().length === 0) {
+        showToast('No content to process', 'warn');
+        return;
+      }
+      
       aiProcessingSnippets.add(item.id);
+      const originalContent = aiBtn.innerHTML;
+      const originalTitle = aiBtn.title;
+      
       aiBtn.innerHTML = '<span class="loading"></span>';
       aiBtn.disabled = true;
       aiBtn.title = 'Processing with AI...';
       
       try {
         const result = await window.api.aiProcess(item.body, { explain: true, summarize: true, tags: true });
-        if (result.success) {
-          await window.api.saveSnippet({
+        if (result && result.success) {
+          const updatedSnippet = {
             ...item,
-            aiSummary: result.summary,
-            aiTags: result.tags,
-            aiExplanation: result.explanation,
+            aiSummary: result.summary || '',
+            aiTags: Array.isArray(result.tags) ? result.tags : [],
+            aiExplanation: result.explanation || '',
             aiProcessed: true
-          });
+          };
+          
+          await window.api.saveSnippet(updatedSnippet);
           await loadSnippets();
-          showToast('AI processing completed', 'success');
+          showToast('AI processing completed!', 'success');
         } else {
-          throw new Error(result.error || 'AI processing failed');
+          throw new Error(result?.error || 'AI processing failed');
         }
       } catch (err) {
-        console.error('AI processing failed', err);
-        showToast(`AI processing failed: ${err.message}`, 'error');
+        console.error('AI processing failed:', err);
+        const errorMessage = err.message || err.toString() || 'Unknown error';
+        showToast(`AI failed: ${errorMessage}`, 'error');
+        
+        // Reset button state on error
+        aiBtn.innerHTML = originalContent;
+        aiBtn.disabled = false;
+        aiBtn.title = originalTitle;
       } finally {
         aiProcessingSnippets.delete(item.id);
+      }
+    });
+    
+    // Clear AI data
+    clearAiBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const confirmClear = confirm('Clear all AI data for this snippet?');
+      if (!confirmClear) return;
+      
+      try {
+        const clearedSnippet = {
+          ...item,
+          aiSummary: '',
+          aiTags: [],
+          aiExplanation: '',
+          aiProcessed: false
+        };
+        
+        await window.api.saveSnippet(clearedSnippet);
+        showToast('AI data cleared', 'success');
+        await loadSnippets();
+      } catch (err) {
+        console.error('Clear AI data failed:', err);
+        showToast('Failed to clear AI data', 'error');
       }
     });
 
@@ -277,7 +347,7 @@ function showEditor(li, item, refs) {
   // Prevent duplicate editors
   if (li.querySelector('.editor-container')) return;
   li.classList.add('editing');
-  const { titleEl, previewEl, codeEl } = refs;
+  const { previewEl, codeEl } = refs;
   // Hide preview/code while editing
   if (previewEl) previewEl.style.display = 'none';
   if (codeEl) codeEl.style.display = 'none';
